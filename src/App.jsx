@@ -13,6 +13,7 @@ import UserDetails from "./components/UserDetails"
 import SalesForm from "./components/Salesform"
 import ReceiptPrinting from "./components/ReceiptPrinting"
 import DebtBook from "./components/DebtBook"
+import SalesAnalytics from "./components/SalesAnalytics"
 import "./App.css"
 
 function App() {
@@ -62,21 +63,33 @@ function App() {
     )
   }
 
+  // Update the addSale function to handle optional customer info
   const addSale = (sale) => {
-    setCurrentSale(sale)
-    setSales([...sales, sale])
+    // Set default values for empty customer info
+    const processedSale = {
+      ...sale,
+      customerName: sale.customerName || "Walk-in Customer",
+      address: sale.address || "N/A",
+      phoneNumber: sale.phoneNumber || "N/A",
+    }
+
+    setCurrentSale(processedSale)
+    setSales([...sales, processedSale])
 
     // If sale is on debt, add to debt book
-    if (sale.paymentType === "debt") {
+    if (processedSale.paymentType === "debt") {
       const debtRecord = {
         id: Date.now(),
-        customerName: sale.customerName,
-        phoneNumber: sale.phoneNumber,
-        amount: sale.price * sale.quantity,
-        date: sale.date,
+        customerName: processedSale.customerName,
+        phoneNumber: processedSale.phoneNumber,
+        amount: processedSale.price * processedSale.quantity,
+        date: processedSale.date,
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // 30 days from now
-        description: `Purchase of ${sale.quantity} ${sale.productName}`,
+        description: `Purchase of ${processedSale.quantity} ${processedSale.productName}`,
         status: "pending",
+        saleId: processedSale.id, // Link to the sale
+        deposits: [],
+        remainingAmount: processedSale.price * processedSale.quantity,
       }
       setDebts([...debts, debtRecord])
     }
@@ -84,8 +97,8 @@ function App() {
     // Update inventory
     setInventory((prevInventory) =>
       prevInventory.map((item) =>
-        item.id === Number(sale.product)
-          ? { ...item, quantity: Math.max(0, Number(item.quantity) - Number(sale.quantity)) }
+        item.id === Number(processedSale.product)
+          ? { ...item, quantity: Math.max(0, Number(item.quantity) - Number(processedSale.quantity)) }
           : item,
       ),
     )
@@ -99,6 +112,20 @@ function App() {
     setDebts(debts.map((debt) => (debt.id === id ? { ...debt, status } : debt)))
   }
 
+  const updateSalePaymentStatus = (saleId, status) => {
+    setSales(sales.map((sale) => (sale.id === saleId ? { ...sale, paymentType: status } : sale)))
+  }
+
+  // Add the deleteProduct and updateProduct functions to the App component
+  const deleteProduct = (id) => {
+    setInventory(inventory.filter((item) => item.id !== id))
+  }
+
+  const updateProduct = (updatedProduct) => {
+    setInventory(inventory.map((item) => (item.id === updatedProduct.id ? updatedProduct : item)))
+  }
+
+  // Update the renderPage function to pass these new functions to ManageInventory
   const renderPage = () => {
     switch (currentPage) {
       case "home":
@@ -108,7 +135,15 @@ function App() {
       case "view-inventory":
         return <ViewInventory inventory={inventory} setCurrentPage={setCurrentPage} />
       case "manage-inventory":
-        return <ManageInventory inventory={inventory} updateQuantity={updateQuantity} setCurrentPage={setCurrentPage} />
+        return (
+          <ManageInventory
+            inventory={inventory}
+            updateQuantity={updateQuantity}
+            deleteProduct={deleteProduct}
+            updateProduct={updateProduct}
+            setCurrentPage={setCurrentPage}
+          />
+        )
       case "developer-details":
         return <DeveloperDetails setCurrentPage={setCurrentPage} />
       case "login":
@@ -120,7 +155,14 @@ function App() {
       case "sales":
         return <SalesForm inventory={inventory} addSale={addSale} sales={sales} setCurrentPage={setCurrentPage} />
       case "receipt-printing":
-        return <ReceiptPrinting currentSale={currentSale} setCurrentPage={setCurrentPage} />
+        return (
+          <ReceiptPrinting
+            currentSale={currentSale}
+            setCurrentPage={setCurrentPage}
+            sales={sales}
+            companyInfo={companyInfo}
+          />
+        )
       case "debt-book":
         return (
           <DebtBook
@@ -128,8 +170,11 @@ function App() {
             addDebt={addDebt}
             updateDebtStatus={updateDebtStatus}
             setCurrentPage={setCurrentPage}
+            updateSalePaymentStatus={updateSalePaymentStatus}
           />
         )
+      case "sales-analytics":
+        return <SalesAnalytics sales={sales} inventory={inventory} setCurrentPage={setCurrentPage} />
       default:
         return <HomePage setCurrentPage={setCurrentPage} />
     }

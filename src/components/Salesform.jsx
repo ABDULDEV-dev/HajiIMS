@@ -19,6 +19,7 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
     product: "",
     quantity: "",
   })
+  const [expandedSaleIds, setExpandedSaleIds] = useState({})
 
   const handleCustomerInfoChange = (e) => {
     const { name, value } = e.target
@@ -103,11 +104,6 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
       return
     }
 
-    if (!customerInfo.customerName || !customerInfo.address || !customerInfo.phoneNumber) {
-      alert("Please fill in all customer information")
-      return
-    }
-
     // Create a sale record for each product in the cart
     const currentDate = new Date().toISOString().split("T")[0]
     const saleId = Date.now() // Use the same ID for all products in this sale
@@ -158,7 +154,7 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
     return parts.join(".")
   }
 
-  const filteredSales = sales.filter((sale) => {
+  const filteredSalesCalc = sales.filter((sale) => {
     const searchLower = searchTerm.toLowerCase()
     return (
       sale.customerName?.toLowerCase().includes(searchLower) ||
@@ -169,8 +165,8 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
   })
 
   // Calculate total sales and profit
-  const totalSales = filteredSales.reduce((sum, sale) => sum + sale.price * sale.quantity, 0)
-  const totalProfit = filteredSales.reduce((sum, sale) => {
+  const totalSales = filteredSalesCalc.reduce((sum, sale) => sum + sale.price * sale.quantity, 0)
+  const totalProfit = filteredSalesCalc.reduce((sum, sale) => {
     const profit = (sale.price - (sale.buyingPrice || 0)) * sale.quantity
     return sum + profit
   }, 0)
@@ -293,7 +289,7 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
 
           {/* Customer Information Form */}
           <form onSubmit={handleSubmit} className="customer-form">
-            <h4>Customer Information</h4>
+            <h4>Customer Information (Optional)</h4>
             <div className="form-group">
               <label htmlFor="customerName">Customer Name</label>
               <input
@@ -301,18 +297,11 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
                 name="customerName"
                 value={customerInfo.customerName}
                 onChange={handleCustomerInfoChange}
-                required
               />
             </div>
             <div className="form-group">
               <label htmlFor="address">Address</label>
-              <input
-                id="address"
-                name="address"
-                value={customerInfo.address}
-                onChange={handleCustomerInfoChange}
-                required
-              />
+              <input id="address" name="address" value={customerInfo.address} onChange={handleCustomerInfoChange} />
             </div>
             <div className="form-group">
               <label htmlFor="phoneNumber">Phone Number</label>
@@ -321,7 +310,6 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
                 name="phoneNumber"
                 value={customerInfo.phoneNumber}
                 onChange={handleCustomerInfoChange}
-                required
               />
             </div>
             <div className="form-group">
@@ -360,52 +348,109 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
               />
             </div>
           </div>
-          <div className="table-wrapper">
-            <table className="responsive-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Customer</th>
-                  <th>Product</th>
-                  <th>Quantity</th>
-                  <th>Price (₦)</th>
-                  <th>Total (₦)</th>
-                  <th>Profit (₦)</th>
-                  <th>Payment</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSales.map((sale) => {
-                  const total = sale.price * sale.quantity
-                  const profit = (sale.price - (sale.buyingPrice || 0)) * sale.quantity
-                  const profitMargin = sale.price > 0 ? ((sale.price - (sale.buyingPrice || 0)) / sale.price) * 100 : 0
 
-                  return (
-                    <tr
-                      key={`${sale.id}-${sale.productId || sale.product}`}
-                      className={sale.paymentType === "debt" ? "debt-row" : ""}
-                    >
-                      <td>{sale.date}</td>
-                      <td>{sale.customerName}</td>
-                      <td>{sale.productName}</td>
-                      <td>{formatNumber(sale.quantity)}</td>
-                      <td>₦{formatNumber(sale.price.toFixed(2))}</td>
-                      <td>₦{formatNumber(total.toFixed(2))}</td>
-                      <td className={profit > 0 ? "profit-positive" : "profit-negative"}>
-                        ₦{formatNumber(profit.toFixed(2))}
-                        <span className="profit-margin">({profitMargin.toFixed(1)}%)</span>
-                      </td>
-                      <td>
-                        <span className={`payment-status ${sale.paymentType}`}>
-                          {sale.paymentType === "paid" ? "Paid" : "Debt"}
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="sales-summary-cards">
+            {/* Group sales by ID (transaction) */}
+            {Object.values(
+              filteredSalesCalc.reduce((acc, sale) => {
+                if (!acc[sale.id]) {
+                  acc[sale.id] = {
+                    id: sale.id,
+                    date: sale.date,
+                    customerName: sale.customerName || "Walk-in Customer",
+                    items: [],
+                    totalAmount: 0,
+                    totalProfit: 0,
+                    paymentType: sale.paymentType,
+                    expanded: false,
+                  }
+                }
+
+                const saleTotal = sale.price * sale.quantity
+                const saleProfit = (sale.price - (sale.buyingPrice || 0)) * sale.quantity
+
+                acc[sale.id].items.push(sale)
+                acc[sale.id].totalAmount += saleTotal
+                acc[sale.id].totalProfit += saleProfit
+
+                return acc
+              }, {}),
+            )
+              .sort((a, b) => new Date(b.date) - new Date(a.date)) // Sort by date, newest first
+              .map((transaction) => (
+                <div
+                  key={transaction.id}
+                  className={`sale-transaction-card ${transaction.paymentType === "debt" ? "debt-card" : ""}`}
+                  onClick={() => {
+                    setExpandedSaleIds((prev) => ({
+                      ...prev,
+                      [transaction.id]: !prev[transaction.id],
+                    }))
+                  }}
+                >
+                  <div className="transaction-header">
+                    <div className="transaction-info">
+                      <div className="transaction-date">{transaction.date}</div>
+                      <div className="transaction-customer">{transaction.customerName}</div>
+                    </div>
+                    <div className="transaction-totals">
+                      <div className="transaction-amount">₦{formatNumber(transaction.totalAmount.toFixed(2))}</div>
+                      <div className={`transaction-payment ${transaction.paymentType}`}>
+                        {transaction.paymentType === "paid" ? "Paid" : "Debt"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Show details only if expanded */}
+                  {expandedSaleIds[transaction.id] && (
+                    <div className="transaction-details">
+                      <table className="transaction-items-table">
+                        <thead>
+                          <tr>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>Price (₦)</th>
+                            <th>Total (₦)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {transaction.items.map((item, idx) => {
+                            const itemTotal = item.price * item.quantity
+                            return (
+                              <tr key={`${item.id}-${idx}`}>
+                                <td>{item.productName}</td>
+                                <td>{formatNumber(item.quantity)}</td>
+                                <td>₦{formatNumber(item.price.toFixed(2))}</td>
+                                <td>₦{formatNumber(itemTotal.toFixed(2))}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <td colSpan="3">
+                              <strong>Total</strong>
+                            </td>
+                            <td>
+                              <strong>₦{formatNumber(transaction.totalAmount.toFixed(2))}</strong>
+                            </td>
+                          </tr>
+                          <tr className="profit-row">
+                            <td colSpan="3">
+                              <strong>Profit</strong>
+                            </td>
+                            <td className={transaction.totalProfit > 0 ? "profit-positive" : "profit-negative"}>
+                              <strong>₦{formatNumber(transaction.totalProfit.toFixed(2))}</strong>
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              ))}
           </div>
+
           <div className="sales-summary">
             <div className="summary-item">
               <strong>Total Sales:</strong> ₦{formatNumber(totalSales.toFixed(2))}

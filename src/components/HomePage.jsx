@@ -1,6 +1,15 @@
 "use client"
 
-import { PlusCircle, ClipboardList, Settings, ShoppingCart, BookOpen, UserCircle, Printer } from "lucide-react"
+import {
+  PlusCircle,
+  ClipboardList,
+  Settings,
+  ShoppingCart,
+  BookOpen,
+  UserCircle,
+  Printer,
+  BarChart,
+} from "lucide-react"
 
 function HomePage({ setCurrentPage }) {
   return (
@@ -8,31 +17,35 @@ function HomePage({ setCurrentPage }) {
       <div className="grid">
         <button onClick={() => setCurrentPage("add-product")}>
           <PlusCircle className="button-icon" />
-          Add Product
+          <span>Add Product</span>
         </button>
         <button onClick={() => setCurrentPage("view-inventory")}>
           <ClipboardList className="button-icon" />
-          View Inventory
+          <span>View Inventory</span>
         </button>
         <button onClick={() => setCurrentPage("manage-inventory")}>
           <Settings className="button-icon" />
-          Manage Inventory
+          <span>Manage Inventory</span>
         </button>
         <button onClick={() => setCurrentPage("sales")}>
           <ShoppingCart className="button-icon" />
-          Sales
+          <span>Sales</span>
         </button>
         <button onClick={() => setCurrentPage("debt-book")}>
           <BookOpen className="button-icon" />
-          Debt Book
+          <span>Debt Book</span>
         </button>
-        <button onClick={() => setCurrentPage("receipt-history")}>
+        <button onClick={() => setCurrentPage("receipt-printing")}>
           <Printer className="button-icon" />
-          Print Receipts
+          <span>Print Receipts</span>
+        </button>
+        <button onClick={() => setCurrentPage("sales-analytics")}>
+          <BarChart className="button-icon" />
+          <span>Sales Analytics</span>
         </button>
         <button onClick={() => setCurrentPage("developer-details")}>
           <UserCircle className="button-icon" />
-          Developer Details
+          <span>Developer Details</span>
         </button>
       </div>
     </main>
@@ -40,4 +53,3 @@ function HomePage({ setCurrentPage }) {
 }
 
 export default HomePage
-

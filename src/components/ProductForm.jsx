@@ -20,15 +20,51 @@ function ProductForm({ addProduct, setCurrentPage }) {
     setLocalImages(storedImages)
   }, [])
 
+  // Update the handleChange function to limit decimal places
   const handleChange = (e) => {
     const { name, value } = e.target
     if (name === "price" || name === "quantity" || name === "buyingPrice") {
       // Remove commas and convert to number
-      const numValue = Number(value.replace(/,/g, ""))
-      setProduct((prev) => ({
-        ...prev,
-        [name]: isNaN(numValue) ? "" : numValue,
-      }))
+      const numValue = value.replace(/,/g, "")
+
+      if (name === "quantity") {
+        // For quantity, only allow whole numbers
+        const intValue = Number.parseInt(numValue)
+        setProduct((prev) => ({
+          ...prev,
+          [name]: isNaN(intValue) ? "" : intValue,
+        }))
+      } else {
+        // For price and buyingPrice, limit to 2 decimal places
+        const floatValue = Number.parseFloat(numValue)
+        if (!isNaN(floatValue)) {
+          // Format to 2 decimal places
+          const formattedValue = Number.parseFloat(floatValue.toFixed(2))
+          setProduct((prev) => ({
+            ...prev,
+            [name]: formattedValue,
+          }))
+
+          // If updating price, check against buying price
+          if (name === "price" && formattedValue <= Number(product.buyingPrice) && product.buyingPrice !== "") {
+            document.getElementById("price-warning").style.display = "block"
+          } else if (name === "price") {
+            document.getElementById("price-warning").style.display = "none"
+          }
+
+          // If updating buying price, check against selling price
+          if (name === "buyingPrice" && Number(product.price) <= formattedValue && product.price !== "") {
+            document.getElementById("price-warning").style.display = "block"
+          } else if (name === "buyingPrice" && Number(product.price) > formattedValue) {
+            document.getElementById("price-warning").style.display = "none"
+          }
+        } else {
+          setProduct((prev) => ({
+            ...prev,
+            [name]: "",
+          }))
+        }
+      }
     } else {
       setProduct((prev) => ({ ...prev, [name]: value }))
     }
@@ -52,6 +88,13 @@ function ProductForm({ addProduct, setCurrentPage }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
+
+    // Validate that selling price is greater than buying price
+    if (Number(product.price) <= Number(product.buyingPrice)) {
+      alert("Selling price must be greater than buying price")
+      return
+    }
+
     addProduct(product)
     setProduct({ name: "", price: "", buyingPrice: "", category: "", quantity: "", image: "" })
     setCurrentPage("view-inventory")
@@ -95,6 +138,13 @@ function ProductForm({ addProduct, setCurrentPage }) {
               required
             />
           </div>
+        </div>
+        <div
+          id="price-warning"
+          className="price-warning"
+          style={{ display: "none", color: "red", marginBottom: "10px" }}
+        >
+          Selling price must be greater than buying price
         </div>
 
         <div>
@@ -148,4 +198,3 @@ function ProductForm({ addProduct, setCurrentPage }) {
 }
 
 export default ProductForm
-

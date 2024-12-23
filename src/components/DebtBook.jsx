@@ -53,6 +53,13 @@ function DebtBook({ debts = [], addDebt, updateDebtStatus, setCurrentPage, updat
 
   const handleSubmit = (e) => {
     e.preventDefault()
+
+    // Validate required fields for debt records
+    if (!newDebt.customerName || !newDebt.phoneNumber) {
+      alert("Customer name and phone number are required for debt records")
+      return
+    }
+
     addDebt({
       ...newDebt,
       id: Date.now(),

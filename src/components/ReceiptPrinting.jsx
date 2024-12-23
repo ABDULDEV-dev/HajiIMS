@@ -2,49 +2,49 @@
 
 import { useRef, useState, useEffect } from "react"
 import BackToHomeButtom from "./BackToHomeButtom"
-import { Printer } from "lucide-react"
+import { Printer, FileText } from "lucide-react"
 
-function ReceiptPrinting({ currentSale, setCurrentPage, sales }) {
+function ReceiptPrinting({ currentSale, setCurrentPage, sales, companyInfo }) {
   const receiptRef = useRef()
   const [showBuyingPrice, setShowBuyingPrice] = useState(false)
   const [relatedSales, setRelatedSales] = useState([])
+  const [selectedSale, setSelectedSale] = useState(currentSale || null)
+
+  useEffect(() => {
+    // If currentSale is provided, use it as the selected sale
+    if (currentSale) {
+      setSelectedSale(currentSale)
+    }
+  }, [currentSale])
 
   useEffect(() => {
     // If this is a multi-item sale, find all related sales with the same ID
-    if (currentSale && currentSale.multiItemSale && sales) {
-      const related = sales.filter((sale) => sale.id === currentSale.id)
-      setRelatedSales(related)
-    } else if (currentSale) {
-      setRelatedSales([currentSale])
+    if (selectedSale && sales) {
+      if (selectedSale.multiItemSale) {
+        const related = sales.filter((sale) => sale.id === selectedSale.id)
+        setRelatedSales(related)
+      } else {
+        setRelatedSales([selectedSale])
+      }
+    } else {
+      setRelatedSales([])
     }
-  }, [currentSale, sales])
-
-  // Add a check to handle if currentSale is null or undefined
-  if (!currentSale) {
-    return (
-      <main className="receipt-printing">
-        <BackToHomeButtom setCurrentPage={setCurrentPage} />
-        <div className="no-receipt">
-          <h2>No Receipt Selected</h2>
-          <p>Please select a sale to print a receipt.</p>
-          <button onClick={() => setCurrentPage("receipt-history")} className="action-button">
-            Go to Receipt History
-          </button>
-        </div>
-      </main>
-    )
-  }
+  }, [selectedSale, sales])
 
   const handlePrint = () => {
-    const printContent = receiptRef.current.innerHTML
-    const originalContent = document.body.innerHTML
-    document.body.innerHTML = printContent
-    window.print()
-    document.body.innerHTML = originalContent
-    // Reattach event handlers after printing
-    setTimeout(() => {
+    if (receiptRef.current) {
+      const originalContents = document.body.innerHTML
+      const printContents = receiptRef.current.innerHTML
+
+      document.body.innerHTML = printContents
+      window.print()
+      document.body.innerHTML = originalContents
+
+      // Reload the page after printing to restore the React app
       window.location.reload()
-    }, 100)
+    } else {
+      window.print()
+    }
   }
 
   const formatNumber = (num) => {
@@ -55,10 +55,18 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales }) {
 
   // Calculate totals for all items in the sale
   const calculateTotals = () => {
+    if (!relatedSales.length)
+      return {
+        subtotal: 0,
+        totalWithTax: 0,
+        totalBuyingAmount: 0,
+        profit: 0,
+        profitMargin: 0,
+      }
+
     const subtotal = relatedSales.reduce((sum, item) => sum + item.price * item.quantity, 0)
-    const taxRate = 0.075
-    const taxAmount = subtotal * taxRate
-    const totalWithTax = subtotal + taxAmount
+    // Remove tax calculation
+    const totalWithTax = subtotal // No tax added
 
     const totalBuyingAmount = relatedSales.reduce((sum, item) => sum + (item.buyingPrice || 0) * item.quantity, 0)
     const profit = subtotal - totalBuyingAmount
@@ -66,8 +74,6 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales }) {
 
     return {
       subtotal,
-      taxRate,
-      taxAmount,
       totalWithTax,
       totalBuyingAmount,
       profit,
@@ -78,10 +84,11 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales }) {
   const totals = calculateTotals()
 
   // Generate invoice number based on sale ID
-  const invoiceNumber = `INV-${currentSale.id.toString().slice(-6)}`
+  const invoiceNumber = selectedSale ? `INV-${selectedSale.id.toString().slice(-6)}` : "INV-000000"
 
   // Format date for display
   const formatDate = (dateString) => {
+    if (!dateString) return "N/A"
     const date = new Date(dateString)
     return date.toLocaleDateString("en-US", {
       weekday: "long",
@@ -91,6 +98,54 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales }) {
       hour: "2-digit",
       minute: "2-digit",
     })
+  }
+
+  // If no sales are available, show a list of sales to select from
+  const handleSelectSale = (sale) => {
+    setSelectedSale(sale)
+  }
+
+  if (!selectedSale && sales && sales.length > 0) {
+    return (
+      <main className="receipt-printing">
+        <BackToHomeButtom setCurrentPage={setCurrentPage} />
+        <h2>Select a Sale to Print Receipt</h2>
+        <div className="sales-list">
+          {sales.slice(0, 10).map((sale) => (
+            <div key={`${sale.id}-${sale.product}`} className="sale-item" onClick={() => handleSelectSale(sale)}>
+              <div className="sale-details">
+                <h4>
+                  {sale.customerName} - {sale.productName}
+                </h4>
+                <p>
+                  Date: {sale.date} | Amount: ₦{formatNumber((sale.price * sale.quantity).toFixed(2))}
+                </p>
+              </div>
+              <button className="select-button">
+                <FileText className="button-icon-small" />
+                Select
+              </button>
+            </div>
+          ))}
+        </div>
+      </main>
+    )
+  }
+
+  // If no sales at all
+  if (!selectedSale && (!sales || sales.length === 0)) {
+    return (
+      <main className="receipt-printing">
+        <BackToHomeButtom setCurrentPage={setCurrentPage} />
+        <div className="no-receipt">
+          <h2>No Sales Available</h2>
+          <p>There are no sales records to print receipts for.</p>
+          <button onClick={() => setCurrentPage("sales")} className="action-button">
+            Go to Sales
+          </button>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -111,13 +166,13 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales }) {
         <div ref={receiptRef} className="receipt-content">
           <div className="receipt-header">
             <div className="store-logo">
-              <img src="/placeholder.svg" alt="Store Logo" />
+              <img src={companyInfo?.image || "./ims.png"} alt="Store Logo" />
             </div>
             <div className="store-info">
-              <h2>Inventory Management System</h2>
-              <p>123 Business Street, City</p>
-              <p>Phone: (123) 456-7890</p>
-              <p>Email: contact@example.com</p>
+              <h2>{companyInfo?.name || "Inventory Management System"}</h2>
+              <p>Kwanan Plato Pantami Gombe</p>
+              <p>Phone: (+234) 7065688358</p>
+              <p>Email: hajisclothingcollections@gmail.com</p>
             </div>
           </div>
 
@@ -132,10 +187,10 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales }) {
             </div>
             <div className="invoice-date">
               <p>
-                <strong>Date:</strong> {formatDate(currentSale.date)}
+                <strong>Date:</strong> {formatDate(selectedSale?.date)}
               </p>
               <p>
-                <strong>Payment:</strong> {currentSale.paymentType === "paid" ? "Paid" : "Credit (Debt)"}
+                <strong>Payment:</strong> {selectedSale?.paymentType === "paid" ? "Paid" : "Credit (Debt)"}
               </p>
             </div>
           </div>
@@ -147,17 +202,17 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales }) {
             <div className="customer-info-grid">
               <div className="customer-info-item">
                 <p>
-                  <strong>Name:</strong> {currentSale.customerName}
+                  <strong>Name:</strong> {selectedSale?.customerName || "Walk-in Customer"}
                 </p>
               </div>
               <div className="customer-info-item">
                 <p>
-                  <strong>Phone:</strong> {currentSale.phoneNumber}
+                  <strong>Phone:</strong> {selectedSale?.phoneNumber || "N/A"}
                 </p>
               </div>
               <div className="customer-info-item">
                 <p>
-                  <strong>Address:</strong> {currentSale.address}
+                  <strong>Address:</strong> {selectedSale?.address || "N/A"}
                 </p>
               </div>
             </div>
@@ -193,10 +248,6 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales }) {
             <div className="summary-row">
               <span>Subtotal:</span>
               <span>₦{formatNumber(totals.subtotal.toFixed(2))}</span>
-            </div>
-            <div className="summary-row">
-              <span>VAT ({(totals.taxRate * 100).toFixed(1)}%):</span>
-              <span>₦{formatNumber(totals.taxAmount.toFixed(2))}</span>
             </div>
             <div className="summary-row total">
               <span>Total:</span>

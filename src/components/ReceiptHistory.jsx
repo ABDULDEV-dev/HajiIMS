@@ -129,4 +129,3 @@ function ReceiptHistory({ sales = [], setCurrentPage, setCurrentSale }) {
 }
 
 export default ReceiptHistory
-
