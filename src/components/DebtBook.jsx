@@ -17,7 +17,14 @@ import {
   History,
 } from "lucide-react"
 
-function DebtBook({ debts = [], addDebt, updateDebtStatus, setCurrentPage, updateSalePaymentStatus }) {
+function DebtBook({
+  debts = [],
+  addDebt,
+  updateDebtStatus,
+  setCurrentPage,
+  updateSalePaymentStatus,
+  updateFinancialRecords,
+}) {
   const [showForm, setShowForm] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [showScrollIndicator, setShowScrollIndicator] = useState(false)
@@ -32,6 +39,8 @@ function DebtBook({ debts = [], addDebt, updateDebtStatus, setCurrentPage, updat
     dueDate: "",
     description: "",
   })
+
+  const [showDepositModal, setShowDepositModal] = useState(false)
 
   useEffect(() => {
     const checkScroll = () => {
@@ -88,6 +97,11 @@ function DebtBook({ debts = [], addDebt, updateDebtStatus, setCurrentPage, updat
       // Update the corresponding sale's payment status if it exists
       if (debt.saleId) {
         updateSalePaymentStatus(debt.saleId, "paid")
+
+        // Update financial records to convert accounts receivable to income
+        if (typeof updateFinancialRecords === "function") {
+          updateFinancialRecords(debt.saleId, debt.remainingAmount)
+        }
       }
     }
   }
@@ -122,14 +136,22 @@ function DebtBook({ debts = [], addDebt, updateDebtStatus, setCurrentPage, updat
     // Update debt with new deposit and remaining amount
     updateDebtStatus(selectedDebt, newRemainingAmount <= 0 ? "paid" : "pending", newDeposits, newRemainingAmount)
 
-    // If debt is fully paid, update the sale status
+    // If debt is fully paid, update the sale status and financial records
     if (newRemainingAmount <= 0 && debt.saleId) {
       updateSalePaymentStatus(debt.saleId, "paid")
+
+      // Update financial records to convert accounts receivable to income
+      if (typeof updateFinancialRecords === "function") {
+        updateFinancialRecords(debt.saleId, amount)
+      }
+    } else if (typeof updateFinancialRecords === "function") {
+      // For partial payments, still update financial records
+      updateFinancialRecords(debt.saleId, amount)
     }
 
-    // Reset form
+    // Reset form and close modal
     setDepositAmount("")
-    setShowDepositForm(false)
+    setShowDepositModal(false)
     setSelectedDebt(null)
   }
 
@@ -226,59 +248,74 @@ function DebtBook({ debts = [], addDebt, updateDebtStatus, setCurrentPage, updat
         </div>
       )}
 
-      {showDepositForm && selectedDebt && (
-        <div className="deposit-form">
-          <h3>Add Deposit</h3>
-          <div className="debt-summary">
-            <p>
-              <strong>Customer:</strong> {debts.find((d) => d.id === selectedDebt)?.customerName}
-            </p>
-            <p>
-              <strong>Original Amount:</strong> ₦
-              {formatNumber(Number(debts.find((d) => d.id === selectedDebt)?.amount).toFixed(2))}
-            </p>
-            <p>
-              <strong>Remaining Balance:</strong> ₦
-              {formatNumber(Number(debts.find((d) => d.id === selectedDebt)?.remainingAmount).toFixed(2))}
-            </p>
-          </div>
-          <form onSubmit={handleAddDeposit}>
-            <div className="form-group">
-              <label htmlFor="depositAmount">
-                <DollarSign className="form-icon" />
-                Deposit Amount (₦)
-              </label>
-              <input
-                id="depositAmount"
-                name="depositAmount"
-                type="number"
-                step="0.01"
-                min="0.01"
-                max={debts.find((d) => d.id === selectedDebt)?.remainingAmount}
-                value={depositAmount}
-                onChange={(e) => setDepositAmount(e.target.value)}
-                required
-              />
-            </div>
-            <div className="form-actions">
-              <button type="submit" className="success-button">
-                <PlusCircle className="button-icon" />
-                Add Deposit
-              </button>
+      {/* Deposit Modal */}
+      {showDepositModal && selectedDebt && (
+        <div className="modal-overlay">
+          <div className="modal-content deposit-modal">
+            <div className="modal-header">
+              <h3>Add Deposit</h3>
               <button
-                type="button"
-                className="cancel-button"
+                className="close-modal-button"
                 onClick={() => {
-                  setShowDepositForm(false)
-                  setSelectedDebt(null)
+                  setShowDepositModal(false)
                   setDepositAmount("")
                 }}
               >
-                <XCircle className="button-icon" />
-                Cancel
+                <XCircle className="button-icon-small" />
               </button>
             </div>
-          </form>
+
+            <div className="debt-summary">
+              <p>
+                <strong>Customer:</strong> {debts.find((d) => d.id === selectedDebt)?.customerName}
+              </p>
+              <p>
+                <strong>Original Amount:</strong> ₦
+                {formatNumber(Number(debts.find((d) => d.id === selectedDebt)?.amount).toFixed(2))}
+              </p>
+              <p>
+                <strong>Remaining Balance:</strong> ₦
+                {formatNumber(Number(debts.find((d) => d.id === selectedDebt)?.remainingAmount).toFixed(2))}
+              </p>
+            </div>
+
+            <form onSubmit={handleAddDeposit}>
+              <div className="form-group">
+                <label htmlFor="depositAmount">
+                  <DollarSign className="form-icon" />
+                  Deposit Amount (₦)
+                </label>
+                <input
+                  id="depositAmount"
+                  name="depositAmount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={debts.find((d) => d.id === selectedDebt)?.remainingAmount}
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="success-button">
+                  <PlusCircle className="button-icon" />
+                  Add Deposit
+                </button>
+                <button
+                  type="button"
+                  className="cancel-button"
+                  onClick={() => {
+                    setShowDepositModal(false)
+                    setDepositAmount("")
+                  }}
+                >
+                  <XCircle className="button-icon" />
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -349,7 +386,7 @@ function DebtBook({ debts = [], addDebt, updateDebtStatus, setCurrentPage, updat
                             <button
                               onClick={() => {
                                 setSelectedDebt(debt.id)
-                                setShowDepositForm(true)
+                                setShowDepositModal(true)
                               }}
                               className="icon-button deposit"
                             >

@@ -14,6 +14,7 @@ import SalesForm from "./components/Salesform"
 import ReceiptPrinting from "./components/ReceiptPrinting"
 import DebtBook from "./components/DebtBook"
 import SalesAnalytics from "./components/SalesAnalytics"
+import FinancialManagement from "./components/FinancialManagement"
 import "./App.css"
 
 function App() {
@@ -63,7 +64,7 @@ function App() {
     )
   }
 
-  // Update the addSale function to handle optional customer info
+  // Update the addSale function to handle initial deposits for debt sales
   const addSale = (sale) => {
     // Set default values for empty customer info
     const processedSale = {
@@ -78,18 +79,31 @@ function App() {
 
     // If sale is on debt, add to debt book
     if (processedSale.paymentType === "debt") {
+      const saleAmount = processedSale.price * processedSale.quantity
+      const initialDeposit = processedSale.initialDeposit || 0
+      const remainingAmount = saleAmount - initialDeposit
+
       const debtRecord = {
         id: Date.now(),
         customerName: processedSale.customerName,
         phoneNumber: processedSale.phoneNumber,
-        amount: processedSale.price * processedSale.quantity,
+        amount: saleAmount,
         date: processedSale.date,
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // 30 days from now
         description: `Purchase of ${processedSale.quantity} ${processedSale.productName}`,
         status: "pending",
         saleId: processedSale.id, // Link to the sale
-        deposits: [],
-        remainingAmount: processedSale.price * processedSale.quantity,
+        deposits:
+          initialDeposit > 0
+            ? [
+                {
+                  id: Date.now() + 1,
+                  amount: initialDeposit,
+                  date: processedSale.date,
+                },
+              ]
+            : [],
+        remainingAmount: remainingAmount,
       }
       setDebts([...debts, debtRecord])
     }
@@ -108,8 +122,8 @@ function App() {
     setDebts([...debts, debt])
   }
 
-  const updateDebtStatus = (id, status) => {
-    setDebts(debts.map((debt) => (debt.id === id ? { ...debt, status } : debt)))
+  const updateDebtStatus = (id, status, deposits, remainingAmount) => {
+    setDebts(debts.map((debt) => (debt.id === id ? { ...debt, status, deposits, remainingAmount } : debt)))
   }
 
   const updateSalePaymentStatus = (saleId, status) => {
@@ -123,6 +137,13 @@ function App() {
 
   const updateProduct = (updatedProduct) => {
     setInventory(inventory.map((item) => (item.id === updatedProduct.id ? updatedProduct : item)))
+  }
+
+  // Function to update financial records when a debt is settled
+  const updateFinancialRecords = (debtId, amount) => {
+    // This function will be called from DebtBook when a debt is settled
+    // We'll implement the actual logic in the FinancialManagement component
+    // For now, we just need to pass this function to both components
   }
 
   // Update the renderPage function to pass these new functions to ManageInventory
@@ -171,10 +192,20 @@ function App() {
             updateDebtStatus={updateDebtStatus}
             setCurrentPage={setCurrentPage}
             updateSalePaymentStatus={updateSalePaymentStatus}
+            updateFinancialRecords={updateFinancialRecords}
           />
         )
       case "sales-analytics":
         return <SalesAnalytics sales={sales} inventory={inventory} setCurrentPage={setCurrentPage} />
+      case "financial-management":
+        return (
+          <FinancialManagement
+            inventory={inventory}
+            sales={sales}
+            setCurrentPage={setCurrentPage}
+            updateFinancialRecords={updateFinancialRecords}
+          />
+        )
       default:
         return <HomePage setCurrentPage={setCurrentPage} />
     }

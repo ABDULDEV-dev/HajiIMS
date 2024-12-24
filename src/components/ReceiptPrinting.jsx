@@ -166,13 +166,13 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales, companyInfo }) {
         <div ref={receiptRef} className="receipt-content">
           <div className="receipt-header">
             <div className="store-logo">
-              <img src={companyInfo?.image || "./ims.png"} alt="Store Logo" />
+              <img src={companyInfo?.image || "/placeholder.svg"} alt="Store Logo" />
             </div>
             <div className="store-info">
               <h2>{companyInfo?.name || "Inventory Management System"}</h2>
-              <p>Kwanan Plato Pantami Gombe</p>
-              <p>Phone: (+234) 7065688358</p>
-              <p>Email: hajisclothingcollections@gmail.com</p>
+              <p>123 Business Street, City</p>
+              <p>Phone: (123) 456-7890</p>
+              <p>Email: contact@example.com</p>
             </div>
           </div>
 
@@ -236,7 +236,17 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales, companyInfo }) {
                   <tr key={index}>
                     <td>{item.productName}</td>
                     <td>{formatNumber(item.quantity)}</td>
-                    <td>₦{formatNumber(item.price.toFixed(2))}</td>
+                    <td>
+                      {item.originalPrice && item.discount > 0 ? (
+                        <>
+                          <span className="original-price">₦{formatNumber(item.originalPrice.toFixed(2))}</span>
+                          <br />
+                          <span>₦{formatNumber(item.price.toFixed(2))}</span>
+                        </>
+                      ) : (
+                        <>₦{formatNumber(item.price.toFixed(2))}</>
+                      )}
+                    </td>
                     <td>₦{formatNumber((item.price * item.quantity).toFixed(2))}</td>
                   </tr>
                 ))}
@@ -245,14 +255,52 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales, companyInfo }) {
           </div>
 
           <div className="receipt-summary">
+            {relatedSales.some((item) => item.discount > 0) && (
+              <div className="summary-row discount">
+                <span>Subtotal:</span>
+                <span>₦{formatNumber((totals.subtotal / (1 - relatedSales[0].discount / 100)).toFixed(2))}</span>
+              </div>
+            )}
+
+            {relatedSales.some((item) => item.discount > 0) && (
+              <div className="summary-row discount">
+                <span>Discount ({relatedSales[0].discount}%):</span>
+                <span>
+                  -₦
+                  {formatNumber(
+                    (
+                      (totals.subtotal / (1 - relatedSales[0].discount / 100)) *
+                      (relatedSales[0].discount / 100)
+                    ).toFixed(2),
+                  )}
+                </span>
+              </div>
+            )}
+
             <div className="summary-row">
               <span>Subtotal:</span>
               <span>₦{formatNumber(totals.subtotal.toFixed(2))}</span>
             </div>
+
             <div className="summary-row total">
               <span>Total:</span>
               <span>₦{formatNumber(totals.totalWithTax.toFixed(2))}</span>
             </div>
+
+            {selectedSale?.paymentType === "debt" && (
+              <div className="payment-info">
+                {selectedSale.initialDeposit > 0 && (
+                  <div className="summary-row deposit">
+                    <span>Initial Deposit:</span>
+                    <span>₦{formatNumber(selectedSale.initialDeposit.toFixed(2))}</span>
+                  </div>
+                )}
+                <div className="summary-row remaining">
+                  <span>Balance Due:</span>
+                  <span>₦{formatNumber((totals.totalWithTax - (selectedSale.initialDeposit || 0)).toFixed(2))}</span>
+                </div>
+              </div>
+            )}
 
             {showBuyingPrice && (
               <div className="profit-info">

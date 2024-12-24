@@ -19,7 +19,9 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
     product: "",
     quantity: "",
   })
-  const [expandedSaleIds, setExpandedSaleIds] = useState({})
+
+  const [discount, setDiscount] = useState(0)
+  const [initialDeposit, setInitialDeposit] = useState("")
 
   const handleCustomerInfoChange = (e) => {
     const { name, value } = e.target
@@ -29,6 +31,25 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
   const handleProductChange = (e) => {
     const { name, value } = e.target
     setCurrentProduct((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleDiscountChange = (e) => {
+    const value = Number.parseFloat(e.target.value)
+    // Ensure discount is between 0 and 10%
+    if (isNaN(value)) {
+      setDiscount(0)
+    } else if (value > 10) {
+      setDiscount(10)
+    } else if (value < 0) {
+      setDiscount(0)
+    } else {
+      setDiscount(value)
+    }
+  }
+
+  const handleInitialDepositChange = (e) => {
+    const value = e.target.value
+    setInitialDeposit(value)
   }
 
   const addToCart = () => {
@@ -104,6 +125,11 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
       return
     }
 
+    if (!customerInfo.customerName || !customerInfo.address || !customerInfo.phoneNumber) {
+      alert("Please fill in all customer information")
+      return
+    }
+
     // Create a sale record for each product in the cart
     const currentDate = new Date().toISOString().split("T")[0]
     const saleId = Date.now() // Use the same ID for all products in this sale
@@ -111,19 +137,29 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
     // Calculate total amount for the entire sale
     const totalAmount = calculateTotal()
 
+    // Calculate the total with discount
+    const totalWithDiscount = calculateTotal()
+
     // Process each item in the cart
     cart.forEach((item) => {
+      // Apply the discount proportionally to each item
+      const itemDiscount = discount > 0 ? (item.price * discount) / 100 : 0
+      const discountedPrice = item.price - itemDiscount
+
       const saleRecord = {
         ...customerInfo,
         product: item.productId,
         productName: item.productName,
-        price: item.price,
+        price: discountedPrice,
+        originalPrice: item.price,
+        discount: discount,
         buyingPrice: item.buyingPrice,
         quantity: item.quantity,
         date: currentDate,
         id: saleId, // Same ID for all items in this sale
         multiItemSale: cart.length > 1, // Flag to indicate this is part of a multi-item sale
-        totalSaleAmount: totalAmount, // Store the total sale amount
+        totalSaleAmount: totalWithDiscount, // Store the total sale amount
+        initialDeposit: customerInfo.paymentType === "debt" ? Number.parseFloat(initialDeposit) || 0 : 0,
       }
 
       addSale(saleRecord)
@@ -138,14 +174,20 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
     })
     setCart([])
     setShowForm(false)
+    setDiscount(0)
+    setInitialDeposit("")
   }
 
   const calculateTotal = () => {
-    return cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+    const discountAmount = subtotal * (discount / 100)
+    return subtotal - discountAmount
   }
 
   const calculateProfit = () => {
-    return cart.reduce((sum, item) => sum + (item.price - item.buyingPrice) * item.quantity, 0)
+    const profit = cart.reduce((sum, item) => sum + (item.price - item.buyingPrice) * item.quantity, 0)
+    const discountAmount = profit * (discount / 100)
+    return profit - discountAmount
   }
 
   const formatNumber = (num) => {
@@ -154,7 +196,7 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
     return parts.join(".")
   }
 
-  const filteredSalesCalc = sales.filter((sale) => {
+  const filteredSales = sales.filter((sale) => {
     const searchLower = searchTerm.toLowerCase()
     return (
       sale.customerName?.toLowerCase().includes(searchLower) ||
@@ -165,8 +207,8 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
   })
 
   // Calculate total sales and profit
-  const totalSales = filteredSalesCalc.reduce((sum, sale) => sum + sale.price * sale.quantity, 0)
-  const totalProfit = filteredSalesCalc.reduce((sum, sale) => {
+  const totalSales = filteredSales.reduce((sum, sale) => sum + sale.price * sale.quantity, 0)
+  const totalProfit = filteredSales.reduce((sum, sale) => {
     const profit = (sale.price - (sale.buyingPrice || 0)) * sale.quantity
     return sum + profit
   }, 0)
@@ -284,12 +326,42 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
                   </tr>
                 </tfoot>
               </table>
+              <div className="discount-section">
+                <div className="discount-input">
+                  <label htmlFor="discount">Discount (%)</label>
+                  <input
+                    id="discount"
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.1"
+                    value={discount}
+                    onChange={handleDiscountChange}
+                    className="discount-field"
+                  />
+                  <span className="discount-limit">Max: 10%</span>
+                </div>
+                {discount > 0 && (
+                  <div className="discount-summary">
+                    <p>
+                      Subtotal: ₦
+                      {formatNumber(cart.reduce((sum, item) => sum + item.price * item.quantity, 0).toFixed(2))}
+                    </p>
+                    <p>
+                      Discount ({discount}%): -₦
+                      {formatNumber(
+                        ((cart.reduce((sum, item) => sum + item.price * item.quantity, 0) * discount) / 100).toFixed(2),
+                      )}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {/* Customer Information Form */}
           <form onSubmit={handleSubmit} className="customer-form">
-            <h4>Customer Information (Optional)</h4>
+            <h4>Customer Information</h4>
             <div className="form-group">
               <label htmlFor="customerName">Customer Name</label>
               <input
@@ -297,11 +369,18 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
                 name="customerName"
                 value={customerInfo.customerName}
                 onChange={handleCustomerInfoChange}
+                required
               />
             </div>
             <div className="form-group">
               <label htmlFor="address">Address</label>
-              <input id="address" name="address" value={customerInfo.address} onChange={handleCustomerInfoChange} />
+              <input
+                id="address"
+                name="address"
+                value={customerInfo.address}
+                onChange={handleCustomerInfoChange}
+                required
+              />
             </div>
             <div className="form-group">
               <label htmlFor="phoneNumber">Phone Number</label>
@@ -310,6 +389,7 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
                 name="phoneNumber"
                 value={customerInfo.phoneNumber}
                 onChange={handleCustomerInfoChange}
+                required
               />
             </div>
             <div className="form-group">
@@ -325,6 +405,22 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
                 <option value="debt">Debt</option>
               </select>
             </div>
+            {customerInfo.paymentType === "debt" && (
+              <div className="form-group">
+                <label htmlFor="initialDeposit">Initial Deposit (₦)</label>
+                <input
+                  id="initialDeposit"
+                  name="initialDeposit"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={initialDeposit}
+                  onChange={handleInitialDepositChange}
+                  placeholder="0.00"
+                />
+                <small className="deposit-note">Leave empty for no initial deposit</small>
+              </div>
+            )}
 
             <button type="submit" className="complete-sale-button" disabled={cart.length === 0}>
               Complete Sale
@@ -348,109 +444,52 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
               />
             </div>
           </div>
+          <div className="table-wrapper">
+            <table className="responsive-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Customer</th>
+                  <th>Product</th>
+                  <th>Quantity</th>
+                  <th>Price (₦)</th>
+                  <th>Total (₦)</th>
+                  <th>Profit (₦)</th>
+                  <th>Payment</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredSales.map((sale) => {
+                  const total = sale.price * sale.quantity
+                  const profit = (sale.price - (sale.buyingPrice || 0)) * sale.quantity
+                  const profitMargin = sale.price > 0 ? ((sale.price - (sale.buyingPrice || 0)) / sale.price) * 100 : 0
 
-          <div className="sales-summary-cards">
-            {/* Group sales by ID (transaction) */}
-            {Object.values(
-              filteredSalesCalc.reduce((acc, sale) => {
-                if (!acc[sale.id]) {
-                  acc[sale.id] = {
-                    id: sale.id,
-                    date: sale.date,
-                    customerName: sale.customerName || "Walk-in Customer",
-                    items: [],
-                    totalAmount: 0,
-                    totalProfit: 0,
-                    paymentType: sale.paymentType,
-                    expanded: false,
-                  }
-                }
-
-                const saleTotal = sale.price * sale.quantity
-                const saleProfit = (sale.price - (sale.buyingPrice || 0)) * sale.quantity
-
-                acc[sale.id].items.push(sale)
-                acc[sale.id].totalAmount += saleTotal
-                acc[sale.id].totalProfit += saleProfit
-
-                return acc
-              }, {}),
-            )
-              .sort((a, b) => new Date(b.date) - new Date(a.date)) // Sort by date, newest first
-              .map((transaction) => (
-                <div
-                  key={transaction.id}
-                  className={`sale-transaction-card ${transaction.paymentType === "debt" ? "debt-card" : ""}`}
-                  onClick={() => {
-                    setExpandedSaleIds((prev) => ({
-                      ...prev,
-                      [transaction.id]: !prev[transaction.id],
-                    }))
-                  }}
-                >
-                  <div className="transaction-header">
-                    <div className="transaction-info">
-                      <div className="transaction-date">{transaction.date}</div>
-                      <div className="transaction-customer">{transaction.customerName}</div>
-                    </div>
-                    <div className="transaction-totals">
-                      <div className="transaction-amount">₦{formatNumber(transaction.totalAmount.toFixed(2))}</div>
-                      <div className={`transaction-payment ${transaction.paymentType}`}>
-                        {transaction.paymentType === "paid" ? "Paid" : "Debt"}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Show details only if expanded */}
-                  {expandedSaleIds[transaction.id] && (
-                    <div className="transaction-details">
-                      <table className="transaction-items-table">
-                        <thead>
-                          <tr>
-                            <th>Product</th>
-                            <th>Quantity</th>
-                            <th>Price (₦)</th>
-                            <th>Total (₦)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {transaction.items.map((item, idx) => {
-                            const itemTotal = item.price * item.quantity
-                            return (
-                              <tr key={`${item.id}-${idx}`}>
-                                <td>{item.productName}</td>
-                                <td>{formatNumber(item.quantity)}</td>
-                                <td>₦{formatNumber(item.price.toFixed(2))}</td>
-                                <td>₦{formatNumber(itemTotal.toFixed(2))}</td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                        <tfoot>
-                          <tr>
-                            <td colSpan="3">
-                              <strong>Total</strong>
-                            </td>
-                            <td>
-                              <strong>₦{formatNumber(transaction.totalAmount.toFixed(2))}</strong>
-                            </td>
-                          </tr>
-                          <tr className="profit-row">
-                            <td colSpan="3">
-                              <strong>Profit</strong>
-                            </td>
-                            <td className={transaction.totalProfit > 0 ? "profit-positive" : "profit-negative"}>
-                              <strong>₦{formatNumber(transaction.totalProfit.toFixed(2))}</strong>
-                            </td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              ))}
+                  return (
+                    <tr
+                      key={`${sale.id}-${sale.productId || sale.product}`}
+                      className={sale.paymentType === "debt" ? "debt-row" : ""}
+                    >
+                      <td>{sale.date}</td>
+                      <td>{sale.customerName}</td>
+                      <td>{sale.productName}</td>
+                      <td>{formatNumber(sale.quantity)}</td>
+                      <td>₦{formatNumber(sale.price.toFixed(2))}</td>
+                      <td>₦{formatNumber(total.toFixed(2))}</td>
+                      <td className={profit > 0 ? "profit-positive" : "profit-negative"}>
+                        ₦{formatNumber(profit.toFixed(2))}
+                        <span className="profit-margin">({profitMargin.toFixed(1)}%)</span>
+                      </td>
+                      <td>
+                        <span className={`payment-status ${sale.paymentType}`}>
+                          {sale.paymentType === "paid" ? "Paid" : "Debt"}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
-
           <div className="sales-summary">
             <div className="summary-item">
               <strong>Total Sales:</strong> ₦{formatNumber(totalSales.toFixed(2))}

@@ -9,6 +9,7 @@ import {
   UserCircle,
   Printer,
   BarChart,
+  DollarSign,
 } from "lucide-react"
 
 function HomePage({ setCurrentPage }) {
@@ -42,6 +43,10 @@ function HomePage({ setCurrentPage }) {
         <button onClick={() => setCurrentPage("sales-analytics")}>
           <BarChart className="button-icon" />
           <span>Sales Analytics</span>
+        </button>
+        <button onClick={() => setCurrentPage("financial-management")}>
+          <DollarSign className="button-icon" />
+          <span>Finances</span>
         </button>
         <button onClick={() => setCurrentPage("developer-details")}>
           <UserCircle className="button-icon" />

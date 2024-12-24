@@ -276,7 +276,9 @@ tr:hover {
 .user-details,
 .debt-book,
 .sales-page,
-.receipt-printing {
+.receipt-printing,
+.sales-analytics,
+.financial-management {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -2360,4 +2362,689 @@ tr:hover {
   .analytics-summary {
     grid-template-columns: 1fr;
   }
+}
+
+/* Financial Management Styles */
+.financial-management {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.financial-management h2 {
+  text-align: center;
+  color: #ff8c00;
+  margin-bottom: 20px;
+}
+
+.financial-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.financial-summary .summary-card {
+  background-color: white;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  text-align: center;
+  border-top: 3px solid #ff8c00;
+  position: relative;
+}
+
+.financial-summary .summary-card h3 {
+  margin: 0 0 10px 0;
+  font-size: 1rem;
+  color: #555;
+}
+
+.financial-summary .summary-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 5px 0;
+}
+
+.financial-summary .summary-value.positive {
+  color: #22c55e;
+}
+
+.financial-summary .summary-value.negative {
+  color: #ef4444;
+}
+
+.edit-balance-button {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  background-color: transparent;
+  color: #666;
+  border: none;
+  padding: 5px;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.edit-balance-button:hover {
+  color: #ff8c00;
+  background-color: transparent;
+}
+
+.financial-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.financial-actions .action-button {
+  flex: 1;
+  min-width: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.financial-actions .income-button {
+  background-color: #22c55e;
+}
+
+.financial-actions .income-button:hover {
+  background-color: #16a34a;
+}
+
+.financial-actions .expense-button {
+  background-color: #ef4444;
+}
+
+.financial-actions .expense-button:hover {
+  background-color: #dc2626;
+}
+
+.financial-actions .filter-button {
+  background-color: #6366f1;
+}
+
+.financial-actions .filter-button:hover {
+  background-color: #4f46e5;
+}
+
+.transaction-form {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.transaction-form h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: #333;
+  font-size: 1.25rem;
+}
+
+.transaction-form .form-icon {
+  color: #666;
+  width: 16px;
+  height: 16px;
+  margin-right: 5px;
+}
+
+.income-form h3 {
+  color: #22c55e;
+}
+
+.expense-form h3 {
+  color: #ef4444;
+}
+
+.opening-balance-form h3 {
+  color: #ff8c00;
+}
+
+.submit-button {
+  background-color: #ff8c00;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.submit-button:hover {
+  background-color: #ff7400;
+}
+
+.filters-container {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.filters-container h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.filter-group label {
+  font-weight: 500;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.filter-group select,
+.filter-group input {
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 15px;
+}
+
+.reset-filters-button {
+  background-color: #6b7280;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.reset-filters-button:hover {
+  background-color: #4b5563;
+}
+
+.transactions-list {
+  margin-top: 20px;
+}
+
+.transactions-list h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #333;
+  font-size: 1.25rem;
+}
+
+.no-transactions {
+  text-align: center;
+  padding: 30px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  color: #666;
+}
+
+.transactions-table-wrapper {
+  overflow-x: auto;
+}
+
+.transactions-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+
+.transactions-table th {
+  background-color: #f8f9fa;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #eee;
+}
+
+.transactions-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.transaction-row {
+  transition: background-color 0.2s;
+}
+
+.transaction-row:hover {
+  background-color: #f8f9fa;
+}
+
+.transaction-row.income {
+  background-color: rgba(34, 197, 94, 0.05);
+}
+
+.transaction-row.expense {
+  background-color: rgba(239, 68, 68, 0.05);
+}
+
+.transaction-row.opening-balance {
+  background-color: rgba(255, 140, 0, 0.05);
+}
+
+.transaction-type {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.transaction-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.transaction-icon.income {
+  color: #22c55e;
+}
+
+.transaction-icon.expense {
+  color: #ef4444;
+}
+
+.transaction-icon.opening-balance {
+  color: #ff8c00;
+}
+
+.transaction-category {
+  white-space: nowrap;
+}
+
+.category-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.transaction-amount {
+  font-weight: 600;
+  text-align: right;
+}
+
+.transaction-amount.positive {
+  color: #22c55e;
+}
+
+.transaction-amount.negative {
+  color: #ef4444;
+}
+
+.financial-insights {
+  margin-top: 30px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.insights-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.insights-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.25rem;
+}
+
+.insights-icon {
+  color: #ff8c00;
+  width: 24px;
+  height: 24px;
+}
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.insight-card {
+  background-color: white;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.insight-card h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #333;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.insight-chart {
+  margin-top: 15px;
+}
+
+.chart-bar-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.chart-label {
+  width: 80px;
+  font-size: 0.875rem;
+  color: #555;
+}
+
+.chart-bar {
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: white;
+  transition: width 0.5s ease;
+  min-width: 60px;
+}
+
+.chart-bar.income {
+  background-color: #22c55e;
+}
+
+.chart-bar.expense {
+  background-color: #ef4444;
+}
+
+.insight-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333;
+  text-align: center;
+  margin: 15px 0;
+}
+
+.insight-description {
+  font-size: 0.875rem;
+  color: #666;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .financial-actions {
+    flex-direction: column;
+  }
+
+  .financial-actions .action-button {
+    width: 100%;
+  }
+
+  .form-row {
+    flex-direction: column;
+  }
+
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .insights-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Add this to your existing CSS file for the formatted input fields */
+.formatted-input {
+  text-align: right;
+  font-family: monospace;
+  font-size: 1.1rem;
+}
+
+/* Add these styles for the sales summary section in Financial Management */
+.sales-summary-section {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.sales-summary-section h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #ff8c00;
+  font-size: 1.25rem;
+}
+
+.section-description {
+  margin-bottom: 20px;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.recorded-card {
+  opacity: 0.8;
+  border-left-color: #9ca3af !important;
+}
+
+.recorded-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  background-color: #9ca3af;
+  color: white;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  margin-top: 5px;
+}
+
+.record-sale-button {
+  background-color: #22c55e;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  margin-top: 5px;
+  transition: background-color 0.2s;
+}
+
+.record-sale-button:hover {
+  background-color: #16a34a;
+}
+
+.transaction-items-count {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 4px;
+}
+
+.items-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.no-sales {
+  text-align: center;
+  padding: 30px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.related-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  background-color: #f1f5f9;
+  color: #64748b;
+  border-radius: 4px;
+  font-size: 0.7rem;
+}
+
+.financial-actions .sales-button {
+  background-color: #f59e0b;
+}
+
+.financial-actions .sales-button:hover {
+  background-color: #d97706;
+}
+
+/* Add styles for the modal popup */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  position: relative;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #ff8c00;
+}
+
+.close-modal-button {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-modal-button:hover {
+  color: #333;
+}
+
+.deposit-modal .debt-summary {
+  margin-bottom: 20px;
+}
+
+/* Add styles for accounts receivable */
+.transaction-icon.accounts-receivable {
+  color: #f59e0b;
+}
+
+.transaction-row.accounts-receivable {
+  background-color: rgba(245, 158, 11, 0.05);
+}
+
+.summary-value.receivable {
+  color: #f59e0b;
+}
+
+/* Add styles for the discount section and deposit field */
+
+/* Discount section styles */
+.discount-section {
+  margin-top: 15px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px dashed #ddd;
+}
+
+.discount-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.discount-input label {
+  font-weight: 500;
+  color: #555;
+  min-width: 100px;
+}
+
+.discount-field {
+  width: 80px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  text-align: right;
+}
+
+.discount-limit {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.discount-summary {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #ddd;
+}
+
+.discount-summary p {
+  margin: 5px 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Deposit field styles */
+.deposit-note {
+  display: block;
+  margin-top: 5px;
+  font-size: 0.8rem;
+  color: #666;
+  font-style: italic;
 }
