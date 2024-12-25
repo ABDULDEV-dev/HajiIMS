@@ -406,7 +406,7 @@ function FinancialManagement({ setCurrentPage, inventory, sales = [], updateFina
   }
 
   // Income categories
-  const incomeCategories = ["Sales", "Investment", "Loan", "Interest", "Refund", "Gift", "Other Income"]
+  const incomeCategories = ["Sales", "Investment", "Credit", "Refund",  "Other Income"]
 
   // Expense categories
   const expenseCategories = [
@@ -415,36 +415,19 @@ function FinancialManagement({ setCurrentPage, inventory, sales = [], updateFina
     "Clothing",
     "Food",
     "Electronics",
-    "Furniture",
-    "Appliances",
-    "Beauty Products",
-    "Health Products",
-    "Toys",
-    "Books",
-    "Stationery",
-    "Jewelry",
-    "Accessories",
-    "Home Decor",
-    "Kitchen Items",
-    "Sports Equipment",
-    "Automotive",
-    "Tools",
-    "Garden Supplies",
+    
 
     // Operational expenses (still needed for general business expenses)
     "Rent",
     "Utilities",
     "Salaries",
     "Transportation",
-    "Marketing",
-    "Insurance",
     "Taxes",
     "Office Supplies",
     "Maintenance",
     "Packaging",
     "Shipping",
     "Software",
-    "Equipment",
     "Professional Services",
     "Bank Charges",
     "Other Expense",
@@ -455,10 +438,6 @@ function FinancialManagement({ setCurrentPage, inventory, sales = [], updateFina
     "Cash",
     "Bank Transfer",
     "Credit Card",
-    "Debit Card",
-    "Mobile Money",
-    "Check",
-    "Credit",
     "Other",
   ]
 
