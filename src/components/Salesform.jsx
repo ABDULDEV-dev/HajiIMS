@@ -125,10 +125,6 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
       return
     }
 
-    if (!customerInfo.customerName || !customerInfo.address || !customerInfo.phoneNumber) {
-      alert("Please fill in all customer information")
-      return
-    }
 
     // Create a sale record for each product in the cart
     const currentDate = new Date().toISOString().split("T")[0]
