@@ -165,7 +165,7 @@ function ProductForm({ addProduct, setCurrentPage }) {
             type="text"
             value={product.quantity ? formatNumber(product.quantity) : ""}
             onChange={handleChange}
-            required
+            
           />
         </div>
         <div>

@@ -369,7 +369,7 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
                 name="customerName"
                 value={customerInfo.customerName}
                 onChange={handleCustomerInfoChange}
-                required
+                
               />
             </div>
             <div className="form-group">
@@ -379,7 +379,7 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
                 name="address"
                 value={customerInfo.address}
                 onChange={handleCustomerInfoChange}
-                required
+                
               />
             </div>
             <div className="form-group">
@@ -389,7 +389,7 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
                 name="phoneNumber"
                 value={customerInfo.phoneNumber}
                 onChange={handleCustomerInfoChange}
-                required
+                
               />
             </div>
             <div className="form-group">

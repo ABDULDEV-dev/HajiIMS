@@ -1,14 +1,55 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import BackToHomeButtom from "./BackToHomeButtom"
 import { Search, Plus, Minus, Package2, Hash, Trash2, Edit, RefreshCw } from "lucide-react"
+import ProfitMarginCalculator from "../components/ProfitMargingCalculator"
 
 function ManageInventory({ inventory = [], updateQuantity, deleteProduct, updateProduct, setCurrentPage }) {
   const [searchTerm, setSearchTerm] = useState("")
   const [editingProduct, setEditingProduct] = useState(null)
   const [restockProduct, setRestockProduct] = useState(null)
   const [restockQuantity, setRestockQuantity] = useState("")
+  const [currentBalance, setCurrentBalance] = useState(0)
+
+  // Load current financial balance
+  useEffect(() => {
+    const loadFinancialData = () => {
+      const storedTransactions = localStorage.getItem("financialTransactions")
+      if (storedTransactions) {
+        const transactions = JSON.parse(storedTransactions)
+        let totalIncome = 0
+        let totalExpenses = 0
+
+        transactions.forEach((transaction) => {
+          if (transaction.type === "income") {
+            totalIncome += Number(transaction.amount)
+          } else if (transaction.type === "expense") {
+            totalExpenses += Number(transaction.amount)
+          }
+        })
+
+        setCurrentBalance(totalIncome - totalExpenses)
+      }
+    }
+
+    loadFinancialData()
+
+    // Set up event listener to update balance when financial data changes
+    window.addEventListener("storage", (e) => {
+      if (e.key === "financialTransactions") {
+        loadFinancialData()
+      }
+    })
+
+    return () => {
+      window.removeEventListener("storage", (e) => {
+        if (e.key === "financialTransactions") {
+          loadFinancialData()
+        }
+      })
+    }
+  }, [])
 
   const filteredInventory = inventory.filter((item) => {
     const searchLower = searchTerm.toLowerCase()
@@ -77,10 +118,58 @@ function ManageInventory({ inventory = [], updateQuantity, deleteProduct, update
     e.preventDefault()
     const quantity = Number.parseInt(restockQuantity)
     if (!isNaN(quantity) && quantity > 0) {
+      // Calculate the total cost of restocking
+      const totalCost = quantity * restockProduct.buyingPrice
+
+      // Check if there's enough balance for the restock
+      if (totalCost > currentBalance) {
+        alert(
+          `Insufficient balance. Current balance: ₦${formatNumber(currentBalance)}, Required: ₦${formatNumber(totalCost)}`,
+        )
+        return
+      }
+
+      // Create an expense transaction for the restock
+      const restockTransaction = {
+        type: "expense",
+        category: restockProduct.category || "inventory",
+        amount: totalCost,
+        date: new Date().toISOString().split("T")[0],
+        description: `Restock of ${quantity} ${restockProduct.name}`,
+        paymentMethod: "cash",
+        reference: `RESTOCK-${Date.now()}`,
+        id: Date.now(),
+        timestamp: new Date().toISOString(),
+        relatedProducts: [restockProduct.id],
+      }
+
+      // Save the transaction to localStorage
+      const storedTransactions = localStorage.getItem("financialTransactions")
+      const transactions = storedTransactions ? JSON.parse(storedTransactions) : []
+      transactions.push(restockTransaction)
+      localStorage.setItem("financialTransactions", JSON.stringify(transactions))
+
+      // Update local balance
+      setCurrentBalance(currentBalance - totalCost)
+
+      // Update the inventory quantity
       updateQuantity(restockProduct.id, quantity)
       setRestockProduct(null)
       setRestockQuantity("")
+
+      // Show confirmation message
+      alert(
+        `Successfully restocked ${quantity} units of ${restockProduct.name}. An expense of ₦${formatNumber(totalCost)} has been recorded and deducted from your balance.`,
+      )
     }
+  }
+
+  // Handle applying suggested price from calculator
+  const handleApplySuggestedPrice = (suggestedPrice) => {
+    setEditingProduct((prev) => ({
+      ...prev,
+      price: suggestedPrice,
+    }))
   }
 
   const formatNumber = (num) => {
@@ -93,6 +182,16 @@ function ManageInventory({ inventory = [], updateQuantity, deleteProduct, update
     <main className="manage-inventory">
       <BackToHomeButtom setCurrentPage={setCurrentPage} />
       <h2>Manage Inventory</h2>
+
+      <div className="financial-summary">
+        <div className="summary-card">
+          <h3>Available Balance</h3>
+          <p className={`summary-value ${currentBalance >= 0 ? "positive" : "negative"}`}>
+            ₦{formatNumber(currentBalance)}
+          </p>
+        </div>
+      </div>
+
       <div className="search-container">
         <div className="search-input-wrapper">
           <Search className="search-icon" />
@@ -142,6 +241,15 @@ function ManageInventory({ inventory = [], updateQuantity, deleteProduct, update
                 />
               </div>
             </div>
+
+            {/* Add the profit margin calculator */}
+            {editingProduct.buyingPrice && (
+              <ProfitMarginCalculator
+                buyingPrice={Number(editingProduct.buyingPrice)}
+                onApplyPrice={handleApplySuggestedPrice}
+              />
+            )}
+
             <div className="form-group">
               <label htmlFor="category">Category</label>
               <select
@@ -183,33 +291,60 @@ function ManageInventory({ inventory = [], updateQuantity, deleteProduct, update
       )}
 
       {restockProduct && (
-        <div className="restock-form">
-          <h3>Restock {restockProduct.name}</h3>
-          <form onSubmit={handleRestockSubmit}>
-            <div className="form-group">
-              <label htmlFor="restockQuantity">Add Quantity</label>
-              <input
-                id="restockQuantity"
-                type="number"
-                min="1"
-                value={restockQuantity}
-                onChange={(e) => setRestockQuantity(e.target.value)}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <p>Current Quantity: {restockProduct.quantity}</p>
-              <p>New Quantity: {restockProduct.quantity + (Number.parseInt(restockQuantity) || 0)}</p>
-            </div>
-            <div className="form-actions">
-              <button type="submit" className="success-button">
-                Restock
-              </button>
-              <button type="button" className="cancel-button" onClick={() => setRestockProduct(null)}>
-                Cancel
-              </button>
-            </div>
-          </form>
+        <div className="restock-popup-overlay">
+          <div className="restock-popup">
+            <h3>Restock {restockProduct.name}</h3>
+            <form onSubmit={handleRestockSubmit}>
+              <div className="form-group">
+                <label htmlFor="restockQuantity">Add Quantity</label>
+                <input
+                  id="restockQuantity"
+                  type="number"
+                  min="1"
+                  value={restockQuantity}
+                  onChange={(e) => setRestockQuantity(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <p>Current Quantity: {restockProduct.quantity}</p>
+                <p>New Quantity: {restockProduct.quantity + (Number.parseInt(restockQuantity) || 0)}</p>
+                {restockQuantity && (
+                  <>
+                    <p className="expense-preview">
+                      Expense Amount: ₦
+                      {formatNumber(restockProduct.buyingPrice * (Number.parseInt(restockQuantity) || 0))}
+                    </p>
+                    <p className="balance-preview">Current Balance: ₦{formatNumber(currentBalance)}</p>
+                    <p className="balance-after-preview">
+                      Balance After Restock: ₦
+                      {formatNumber(
+                        currentBalance - restockProduct.buyingPrice * (Number.parseInt(restockQuantity) || 0),
+                      )}
+                    </p>
+                    {currentBalance < restockProduct.buyingPrice * (Number.parseInt(restockQuantity) || 0) && (
+                      <p className="insufficient-balance-warning">Warning: Insufficient balance for this restock!</p>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="form-actions">
+                <button
+                  type="submit"
+                  className="success-button"
+                  disabled={
+                    restockQuantity &&
+                    currentBalance < restockProduct.buyingPrice * (Number.parseInt(restockQuantity) || 0)
+                  }
+                >
+                  Restock
+                </button>
+                <button type="button" className="cancel-button" onClick={() => setRestockProduct(null)}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

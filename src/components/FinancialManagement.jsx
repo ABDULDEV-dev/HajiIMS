@@ -285,6 +285,11 @@ function FinancialManagement({ setCurrentPage, inventory, sales = [], updateFina
     }
   }
 
+  // Add this function after the handleDebtSettlement function to handle restock expenses
+  const handleRestockExpense = (restockTransaction) => {
+    setTransactions((prev) => [...prev, restockTransaction])
+  }
+
   // Filter transactions based on search term and filters
   const filteredTransactions = transactions.filter((transaction) => {
     // Search term filter
@@ -479,6 +484,25 @@ function FinancialManagement({ setCurrentPage, inventory, sales = [], updateFina
       updateFinancialRecords = (saleId, amount) => {
         handleDebtSettlement(saleId, amount)
       }
+    }
+  }, [])
+
+  // Add this useEffect to listen for restock transactions
+  useEffect(() => {
+    // Function to handle storage events
+    const handleStorageChange = (e) => {
+      if (e.key === "financialTransactions") {
+        const updatedTransactions = JSON.parse(e.newValue)
+        setTransactions(updatedTransactions)
+      }
+    }
+
+    // Add event listener
+    window.addEventListener("storage", handleStorageChange)
+
+    // Clean up
+    return () => {
+      window.removeEventListener("storage", handleStorageChange)
     }
   }, [])
 
