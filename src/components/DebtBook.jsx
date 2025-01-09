@@ -15,6 +15,7 @@ import {
   ArrowRight,
   PlusCircle,
   History,
+  ChevronDown,
 } from "lucide-react"
 
 function DebtBook({
@@ -41,6 +42,15 @@ function DebtBook({
   })
 
   const [showDepositModal, setShowDepositModal] = useState(false)
+
+  // Add these new state variables and functions after the existing ones
+  const [expandedCards, setExpandedCards] = useState(new Set())
+  const [selectedFilter, setSelectedFilter] = useState("all")
+  const [swipedCard, setSwipedCard] = useState(null)
+  const [longPressCard, setLongPressCard] = useState(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const touchStartRef = useRef(null)
+  const longPressTimerRef = useRef(null)
 
   useEffect(() => {
     const checkScroll = () => {
@@ -175,6 +185,121 @@ function DebtBook({
   const getTotalDeposits = (debt) => {
     if (!debt.deposits || debt.deposits.length === 0) return 0
     return debt.deposits.reduce((sum, deposit) => sum + deposit.amount, 0)
+  }
+
+  // Add these new functions before the return statement
+  const toggleCardExpansion = (debtId) => {
+    const newExpanded = new Set(expandedCards)
+    if (newExpanded.has(debtId)) {
+      newExpanded.delete(debtId)
+    } else {
+      newExpanded.add(debtId)
+    }
+    setExpandedCards(newExpanded)
+  }
+
+  const handleTouchStart = (e, debtId) => {
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      time: Date.now(),
+      debtId,
+    }
+
+    longPressTimerRef.current = setTimeout(() => {
+      setLongPressCard(debtId)
+      if (navigator.vibrate) {
+        navigator.vibrate(50)
+      }
+    }, 500)
+  }
+
+  const handleTouchMove = (e, debtId) => {
+    if (!touchStartRef.current) return
+
+    const deltaX = e.touches[0].clientX - touchStartRef.current.x
+    const deltaY = e.touches[0].clientY - touchStartRef.current.y
+
+    if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+      clearTimeout(longPressTimerRef.current)
+    }
+
+    if (Math.abs(deltaX) > 50) {
+      setSwipedCard(debtId)
+    }
+  }
+
+  const handleTouchEnd = (e, debtId) => {
+    clearTimeout(longPressTimerRef.current)
+
+    if (!touchStartRef.current) return
+
+    const deltaX = e.changedTouches[0].clientX - touchStartRef.current.x
+    const deltaY = e.changedTouches[0].clientY - touchStartRef.current.y
+    const deltaTime = Date.now() - touchStartRef.current.time
+
+    setTimeout(() => setSwipedCard(null), 300)
+
+    if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10 && deltaTime < 300) {
+      toggleCardExpansion(debtId)
+    }
+
+    touchStartRef.current = null
+  }
+
+  const handleQuickAction = (action, debt) => {
+    if (navigator.vibrate) {
+      navigator.vibrate(30)
+    }
+
+    switch (action) {
+      case "call":
+        window.open(`tel:${debt.phoneNumber}`)
+        break
+      case "whatsapp":
+        window.open(`https://wa.me/${debt.phoneNumber.replace(/\D/g, "")}`)
+        break
+      case "deposit":
+        setSelectedDebt(debt.id)
+        setShowDepositModal(true)
+        break
+      case "paid":
+        handleMarkAsPaid(debt.id)
+        break
+      default:
+        break
+    }
+  }
+
+  const filterOptions = [
+    { key: "all", label: "All Debts" },
+    { key: "pending", label: "Pending" },
+    { key: "paid", label: "Paid" },
+    { key: "overdue", label: "Overdue" },
+  ]
+
+  const getFilteredDebts = () => {
+    let filtered = filteredDebts
+
+    switch (selectedFilter) {
+      case "pending":
+        filtered = filtered.filter((debt) => debt.status === "pending")
+        break
+      case "paid":
+        filtered = filtered.filter((debt) => debt.status === "paid")
+        break
+      case "overdue":
+        filtered = filtered.filter((debt) => {
+          const today = new Date()
+          const dueDate = new Date(debt.dueDate)
+          return debt.status === "pending" && dueDate < today
+        })
+        break
+      default:
+        break
+    }
+
+    return filtered
   }
 
   return (
@@ -417,6 +542,212 @@ function DebtBook({
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Cards */}
+        <div className="mobile-cards">
+          {/* Mobile Filters */}
+          <div className="mobile-filters">
+            {filterOptions.map((option) => (
+              <button
+                key={option.key}
+                className={`filter-chip ${selectedFilter === option.key ? "active" : ""}`}
+                onClick={() => setSelectedFilter(option.key)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="table-cards">
+            {getFilteredDebts().map((debt) => {
+              const totalDeposits = getTotalDeposits(debt)
+              const remainingAmount =
+                debt.remainingAmount !== undefined ? debt.remainingAmount : Number(debt.amount) - totalDeposits
+              const isExpanded = expandedCards.has(debt.id)
+              const isOverdue = new Date(debt.dueDate) < new Date() && debt.status === "pending"
+              const paymentProgress = ((Number(debt.amount) - remainingAmount) / Number(debt.amount)) * 100
+
+              return (
+                <div
+                  key={debt.id}
+                  className={`table-card expandable ripple ${debt.status === "paid" ? "paid-card" : "debt-card"} ${isExpanded ? "expanded" : ""} ${swipedCard === debt.id ? "swipe-right" : ""} ${longPressCard === debt.id ? "long-pressing" : ""}`}
+                  onTouchStart={(e) => handleTouchStart(e, debt.id)}
+                  onTouchMove={(e) => handleTouchMove(e, debt.id)}
+                  onTouchEnd={(e) => handleTouchEnd(e, debt.id)}
+                  onClick={() => toggleCardExpansion(debt.id)}
+                >
+                  {/* Swipe Actions */}
+                  {debt.status === "pending" && (
+                    <div className="swipe-actions right">
+                      <button
+                        className="swipe-action-button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleQuickAction("deposit", debt)
+                        }}
+                      >
+                        <PlusCircle />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Notification Badge for Overdue */}
+                  {isOverdue && <div className="notification-badge">!</div>}
+
+                  {/* Expand Indicator */}
+                  <div className={`card-expand-indicator ${isExpanded ? "expanded" : ""}`}>
+                    <ChevronDown />
+                  </div>
+
+                  {/* Quick Actions Menu */}
+                  <div className="card-quick-actions">
+                    <button
+                      className="quick-action-btn call"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleQuickAction("call", debt)
+                      }}
+                    >
+                      <Phone size={16} />
+                    </button>
+                    {debt.status === "pending" && (
+                      <>
+                        <button
+                          className="quick-action-btn edit"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleQuickAction("deposit", debt)
+                          }}
+                        >
+                          <PlusCircle size={16} />
+                        </button>
+                        <button
+                          className="quick-action-btn view"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleQuickAction("paid", debt)
+                          }}
+                        >
+                          <CheckCircle2 size={16} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="card-header">
+                    <div className="card-title">{debt.customerName}</div>
+                    <span className={`card-status ${debt.status} ${isOverdue ? "overdue" : ""}`}>
+                      {isOverdue ? "Overdue" : debt.status === "paid" ? "Paid" : "Pending"}
+                    </span>
+                  </div>
+
+                  {/* Payment Progress Bar */}
+                  <div className="card-progress">
+                    <div
+                      className={`card-progress-bar ${debt.status === "paid" ? "paid" : paymentProgress > 50 ? "partial" : "debt"}`}
+                      style={{ width: `${paymentProgress}%` }}
+                    ></div>
+                  </div>
+
+                  <div className="card-details">
+                    <div className="card-detail">
+                      <span className="card-detail-label">Phone</span>
+                      <span className="card-detail-value">{debt.phoneNumber}</span>
+                    </div>
+                    <div className="card-detail">
+                      <span className="card-detail-label">Original Amount</span>
+                      <span className="card-detail-value">₦{formatNumber(Number(debt.amount).toFixed(2))}</span>
+                    </div>
+                    <div className="card-detail">
+                      <span className="card-detail-label">Remaining</span>
+                      <span className="card-detail-value">₦{formatNumber(remainingAmount.toFixed(2))}</span>
+                    </div>
+                    <div className="card-detail">
+                      <span className="card-detail-label">Due Date</span>
+                      <span className={`card-detail-value ${isOverdue ? "profit-negative" : ""}`}>{debt.dueDate}</span>
+                    </div>
+                  </div>
+
+                  {/* Expanded Content */}
+                  {isExpanded && (
+                    <div className="card-expanded-content">
+                      <div className="card-expanded-details">
+                        <div className="expanded-detail">
+                          <span className="expanded-detail-label">Description</span>
+                          <span className="expanded-detail-value">{debt.description}</span>
+                        </div>
+                        <div className="expanded-detail">
+                          <span className="expanded-detail-label">Amount Paid</span>
+                          <span className="expanded-detail-value">₦{formatNumber(totalDeposits.toFixed(2))}</span>
+                        </div>
+                        <div className="expanded-detail">
+                          <span className="expanded-detail-label">Payment Progress</span>
+                          <span className="expanded-detail-value">{paymentProgress.toFixed(1)}%</span>
+                        </div>
+                        <div className="expanded-detail">
+                          <span className="expanded-detail-label">Created Date</span>
+                          <span className="expanded-detail-value">{debt.date}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action Buttons for Mobile */}
+                  {debt.status === "pending" && (
+                    <div className="card-actions">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedDebt(debt.id)
+                          setShowDepositModal(true)
+                        }}
+                        className="card-action-button primary"
+                      >
+                        <PlusCircle className="button-icon-small" />
+                        Deposit
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleMarkAsPaid(debt.id)
+                        }}
+                        className="card-action-button success"
+                      >
+                        <CheckCircle2 className="button-icon-small" />
+                        Mark Paid
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Gesture Hint */}
+                  <div className="gesture-hint">Tap to expand • Swipe for quick deposit</div>
+
+                  {/* Long Press Menu */}
+                  {longPressCard === debt.id && (
+                    <div className="long-press-menu show">
+                      <button className="long-press-action" onClick={() => handleQuickAction("call", debt)}>
+                        Call
+                      </button>
+                      <button className="long-press-action" onClick={() => handleQuickAction("whatsapp", debt)}>
+                        WhatsApp
+                      </button>
+                      {debt.status === "pending" && (
+                        <button className="long-press-action" onClick={() => handleQuickAction("deposit", debt)}>
+                          Add Deposit
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Floating Action Button */}
+          <button className="floating-action-btn" onClick={() => setShowForm(true)}>
+            <Plus size={24} />
+          </button>
         </div>
 
         {/* Deposit History Section */}

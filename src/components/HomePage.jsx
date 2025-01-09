@@ -48,10 +48,8 @@ function HomePage({ setCurrentPage }) {
           <DollarSign className="button-icon" />
           <span>Finances</span>
         </button>
-        <button onClick={() => setCurrentPage("developer-details")}>
-          <UserCircle className="button-icon" />
-          <span>Developer Details</span>
-        </button>
+
+    
       </div>
     </main>
   )

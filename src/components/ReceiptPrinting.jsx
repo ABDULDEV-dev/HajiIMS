@@ -2,34 +2,37 @@
 
 import { useRef, useState, useEffect } from "react"
 import BackToHomeButtom from "./BackToHomeButtom"
-import { Printer, FileText } from "lucide-react"
+import { Printer, FileText, ShoppingBag } from "lucide-react"
 
 function ReceiptPrinting({ currentSale, setCurrentPage, sales, companyInfo }) {
   const receiptRef = useRef()
   const [showBuyingPrice, setShowBuyingPrice] = useState(false)
-  const [relatedSales, setRelatedSales] = useState([])
+  const [receiptItems, setReceiptItems] = useState([])
   const [selectedSale, setSelectedSale] = useState(currentSale || null)
+  const [isMultiItemSale, setIsMultiItemSale] = useState(false)
 
   useEffect(() => {
     // If currentSale is provided, use it as the selected sale
     if (currentSale) {
       setSelectedSale(currentSale)
-    }
-  }, [currentSale])
 
-  useEffect(() => {
-    // If this is a multi-item sale, find all related sales with the same ID
-    if (selectedSale && sales) {
-      if (selectedSale.multiItemSale) {
-        const related = sales.filter((sale) => sale.id === selectedSale.id)
-        setRelatedSales(related)
+      // Check if this is a new format multi-item sale (with cartItems array)
+      if (currentSale.cartItems && Array.isArray(currentSale.cartItems)) {
+        setIsMultiItemSale(true)
+        setReceiptItems(currentSale.cartItems)
       } else {
-        setRelatedSales([selectedSale])
+        // Handle legacy format - check if there are related sales with the same ID
+        if (sales) {
+          const related = sales.filter((sale) => sale.id === currentSale.id)
+          setReceiptItems(related)
+          setIsMultiItemSale(related.length > 1)
+        } else {
+          setReceiptItems([currentSale])
+          setIsMultiItemSale(false)
+        }
       }
-    } else {
-      setRelatedSales([])
     }
-  }, [selectedSale, sales])
+  }, [currentSale, sales])
 
   const handlePrint = () => {
     if (receiptRef.current) {
@@ -48,6 +51,7 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales, companyInfo }) {
   }
 
   const formatNumber = (num) => {
+    if (num === undefined || num === null) return "0"
     const parts = num.toString().split(".")
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",")
     return parts.join(".")
@@ -55,29 +59,58 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales, companyInfo }) {
 
   // Calculate totals for all items in the sale
   const calculateTotals = () => {
-    if (!relatedSales.length)
+    if (!receiptItems.length)
       return {
         subtotal: 0,
         totalWithTax: 0,
         totalBuyingAmount: 0,
         profit: 0,
         profitMargin: 0,
+        discount: 0,
+        discountAmount: 0,
+        finalTotal: 0,
       }
 
-    const subtotal = relatedSales.reduce((sum, item) => sum + item.price * item.quantity, 0)
-    // Remove tax calculation
-    const totalWithTax = subtotal // No tax added
+    // If this is a new format sale with totalAmount already calculated
+    if (isMultiItemSale && selectedSale.totalAmount !== undefined) {
+      const subtotal = receiptItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+      const totalBuyingAmount = receiptItems.reduce((sum, item) => sum + (item.buyingPrice || 0) * item.quantity, 0)
+      const discount = selectedSale.discountAmount || 0
+      const finalTotal = selectedSale.totalAmount
+      const profit = finalTotal - totalBuyingAmount
+      const profitMargin = finalTotal > 0 ? (profit / finalTotal) * 100 : 0
 
-    const totalBuyingAmount = relatedSales.reduce((sum, item) => sum + (item.buyingPrice || 0) * item.quantity, 0)
-    const profit = subtotal - totalBuyingAmount
-    const profitMargin = subtotal > 0 ? (profit / subtotal) * 100 : 0
+      return {
+        subtotal,
+        totalWithTax: finalTotal, // No tax added
+        totalBuyingAmount,
+        profit,
+        profitMargin,
+        discount: selectedSale.discount || 0,
+        discountAmount: discount,
+        finalTotal,
+      }
+    } else {
+      // Legacy calculation for old format sales
+      const subtotal = receiptItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+      const totalWithTax = subtotal // No tax added
+      const totalBuyingAmount = receiptItems.reduce((sum, item) => sum + (item.buyingPrice || 0) * item.quantity, 0)
+      const profit = subtotal - totalBuyingAmount
+      const profitMargin = subtotal > 0 ? (profit / subtotal) * 100 : 0
+      const discount = receiptItems[0]?.discount || 0
+      const discountAmount = discount > 0 ? (subtotal * discount) / 100 : 0
+      const finalTotal = subtotal - discountAmount
 
-    return {
-      subtotal,
-      totalWithTax,
-      totalBuyingAmount,
-      profit,
-      profitMargin,
+      return {
+        subtotal,
+        totalWithTax,
+        totalBuyingAmount,
+        profit,
+        profitMargin,
+        discount,
+        discountAmount,
+        finalTotal,
+      }
     }
   }
 
@@ -111,22 +144,40 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales, companyInfo }) {
         <BackToHomeButtom setCurrentPage={setCurrentPage} />
         <h2>Select a Sale to Print Receipt</h2>
         <div className="sales-list">
-          {sales.slice(0, 10).map((sale) => (
-            <div key={`${sale.id}-${sale.product}`} className="sale-item" onClick={() => handleSelectSale(sale)}>
-              <div className="sale-details">
-                <h4>
-                  {sale.customerName} - {sale.productName}
-                </h4>
-                <p>
-                  Date: {sale.date} | Amount: ₦{formatNumber((sale.price * sale.quantity).toFixed(2))}
-                </p>
+          {sales.slice(0, 10).map((sale) => {
+            // Check if this is a multi-item sale with cartItems
+            const isMultiItem = sale.cartItems && Array.isArray(sale.cartItems) && sale.cartItems.length > 0
+            const itemCount = isMultiItem ? sale.cartItems.length : 1
+            const totalAmount = isMultiItem ? sale.totalAmount : sale.price * sale.quantity
+
+            return (
+              <div
+                key={`${sale.id}-${isMultiItem ? "multi" : sale.productName}`}
+                className="sale-item"
+                onClick={() => handleSelectSale(sale)}
+              >
+                <div className="sale-details">
+                  <h4>
+                    {sale.customerName} -{" "}
+                    {isMultiItem ? (
+                      <span>
+                        <ShoppingBag size={16} className="inline-icon" /> {itemCount} items
+                      </span>
+                    ) : (
+                      sale.productName
+                    )}
+                  </h4>
+                  <p>
+                    Date: {sale.date} | Amount: ₦{formatNumber(totalAmount.toFixed(2))}
+                  </p>
+                </div>
+                <button className="select-button">
+                  <FileText className="button-icon-small" />
+                  Select
+                </button>
               </div>
-              <button className="select-button">
-                <FileText className="button-icon-small" />
-                Select
-              </button>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </main>
     )
@@ -170,9 +221,9 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales, companyInfo }) {
             </div>
             <div className="store-info">
               <h2>{companyInfo?.name || "Inventory Management System"}</h2>
-              <p>123 Business Street, City</p>
-              <p>Phone: (123) 456-7890</p>
-              <p>Email: contact@example.com</p>
+              <p>{companyInfo?.address || "123 Business Street, City"}</p>
+              <p>Phone: {companyInfo?.phone || "(123) 456-7890"}</p>
+              <p>Email: {companyInfo?.email || "contact@example.com"}</p>
             </div>
           </div>
 
@@ -221,7 +272,7 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales, companyInfo }) {
           <div className="receipt-divider"></div>
 
           <div className="receipt-items">
-            <h4>Purchase Details</h4>
+            <h4>Purchase Details {isMultiItemSale ? `(${receiptItems.length} items)` : ""}</h4>
             <table className="items-table">
               <thead>
                 <tr>
@@ -232,12 +283,12 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales, companyInfo }) {
                 </tr>
               </thead>
               <tbody>
-                {relatedSales.map((item, index) => (
+                {receiptItems.map((item, index) => (
                   <tr key={index}>
                     <td>{item.productName}</td>
                     <td>{formatNumber(item.quantity)}</td>
                     <td>
-                      {item.originalPrice && item.discount > 0 ? (
+                      {item.originalPrice && item.originalPrice > item.price ? (
                         <>
                           <span className="original-price">₦{formatNumber(item.originalPrice.toFixed(2))}</span>
                           <br />
@@ -255,36 +306,21 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales, companyInfo }) {
           </div>
 
           <div className="receipt-summary">
-            {relatedSales.some((item) => item.discount > 0) && (
-              <div className="summary-row discount">
-                <span>Subtotal:</span>
-                <span>₦{formatNumber((totals.subtotal / (1 - relatedSales[0].discount / 100)).toFixed(2))}</span>
-              </div>
-            )}
-
-            {relatedSales.some((item) => item.discount > 0) && (
-              <div className="summary-row discount">
-                <span>Discount ({relatedSales[0].discount}%):</span>
-                <span>
-                  -₦
-                  {formatNumber(
-                    (
-                      (totals.subtotal / (1 - relatedSales[0].discount / 100)) *
-                      (relatedSales[0].discount / 100)
-                    ).toFixed(2),
-                  )}
-                </span>
-              </div>
-            )}
-
             <div className="summary-row">
               <span>Subtotal:</span>
               <span>₦{formatNumber(totals.subtotal.toFixed(2))}</span>
             </div>
 
+            {totals.discountAmount > 0 && (
+              <div className="summary-row discount">
+                <span>Discount {totals.discount > 0 ? `(${totals.discount}%)` : ""}:</span>
+                <span>-₦{formatNumber(totals.discountAmount.toFixed(2))}</span>
+              </div>
+            )}
+
             <div className="summary-row total">
               <span>Total:</span>
-              <span>₦{formatNumber(totals.totalWithTax.toFixed(2))}</span>
+              <span>₦{formatNumber(totals.finalTotal.toFixed(2))}</span>
             </div>
 
             {selectedSale?.paymentType === "debt" && (
@@ -297,7 +333,7 @@ function ReceiptPrinting({ currentSale, setCurrentPage, sales, companyInfo }) {
                 )}
                 <div className="summary-row remaining">
                   <span>Balance Due:</span>
-                  <span>₦{formatNumber((totals.totalWithTax - (selectedSale.initialDeposit || 0)).toFixed(2))}</span>
+                  <span>₦{formatNumber((totals.finalTotal - (selectedSale.initialDeposit || 0)).toFixed(2))}</span>
                 </div>
               </div>
             )}
