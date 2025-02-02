@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import BackToHomeButtom from "./BackToHomeButtom"
+// import ProfitMarginCalculator from "./ProfitMarginCalculator"
 
 function ProductForm({ addProduct, setCurrentPage }) {
   const [product, setProduct] = useState({
@@ -104,6 +105,16 @@ function ProductForm({ addProduct, setCurrentPage }) {
     return num >= 1000 ? num.toLocaleString("en-US") : num.toString()
   }
 
+  // Handle applying suggested price from calculator
+  // const handleApplySuggestedPrice = (suggestedPrice) => {
+  //   setProduct((prev) => ({
+  //     ...prev,
+  //     price: suggestedPrice,
+  //   }))
+  //   // Hide price warning since we're applying a valid price
+  //   document.getElementById("price-warning").style.display = "none"
+  // }
+
   return (
     <main className="product-form">
       <BackToHomeButtom setCurrentPage={setCurrentPage} />
@@ -147,6 +158,11 @@ function ProductForm({ addProduct, setCurrentPage }) {
           Selling price must be greater than buying price
         </div>
 
+        {/* Add the profit margin calculator */}
+        {/* {product.buyingPrice && (
+          <ProfitMarginCalculator buyingPrice={Number(product.buyingPrice)} onApplyPrice={handleApplySuggestedPrice} />
+        )} */}
+
         <div>
           <label htmlFor="category">Category</label>
           <select id="category" name="category" value={product.category} onChange={handleChange} required>
@@ -165,7 +181,6 @@ function ProductForm({ addProduct, setCurrentPage }) {
             type="text"
             value={product.quantity ? formatNumber(product.quantity) : ""}
             onChange={handleChange}
-            
           />
         </div>
         <div>

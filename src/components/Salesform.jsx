@@ -19,9 +19,7 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
     product: "",
     quantity: "",
   })
-
-  const [discount, setDiscount] = useState(0) // Now represents amount instead of percentage
-  const [initialDeposit, setInitialDeposit] = useState("")
+  const [expandedSaleIds, setExpandedSaleIds] = useState({})
 
   const handleCustomerInfoChange = (e) => {
     const { name, value } = e.target
@@ -31,26 +29,6 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
   const handleProductChange = (e) => {
     const { name, value } = e.target
     setCurrentProduct((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleDiscountChange = (e) => {
-    const value = Number.parseFloat(e.target.value)
-    const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-
-    if (isNaN(value)) {
-      setDiscount(0)
-    } else if (value > cartTotal) {
-      setDiscount(cartTotal) // Can't discount more than total
-    } else if (value < 0) {
-      setDiscount(0)
-    } else {
-      setDiscount(value)
-    }
-  }
-
-  const handleInitialDepositChange = (e) => {
-    const value = e.target.value
-    setInitialDeposit(value)
   }
 
   const addToCart = () => {
@@ -126,48 +104,30 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
       return
     }
 
-    // Create a single sale transaction with all cart items
+    // Create a sale record for each product in the cart
     const currentDate = new Date().toISOString().split("T")[0]
-    const saleId = Date.now()
+    const saleId = Date.now() // Use the same ID for all products in this sale
 
-    // Calculate totals for the entire cart
-    const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-    const totalWithDiscount = cartSubtotal - discount
-    const totalProfit = cart.reduce((sum, item) => sum + (item.price - item.buyingPrice) * item.quantity, 0) - discount
+    // Calculate total amount for the entire sale
+    const totalAmount = calculateTotal()
 
-    // Create a comprehensive sale record that includes all cart items
-    const saleRecord = {
-      ...customerInfo,
-      id: saleId,
-      date: currentDate,
-      cartItems: cart.map((item) => ({
-        productId: item.productId,
+    // Process each item in the cart
+    cart.forEach((item) => {
+      const saleRecord = {
+        ...customerInfo,
+        product: item.productId,
         productName: item.productName,
         price: item.price,
         buyingPrice: item.buyingPrice,
         quantity: item.quantity,
-        itemTotal: item.price * item.quantity,
-      })),
-      // For backward compatibility, use the first item's details as primary
-      product: cart[0].productId,
-      productName: cart.length === 1 ? cart[0].productName : `${cart.length} items`,
-      price: totalWithDiscount / cart.reduce((sum, item) => sum + item.quantity, 0), // Average price per unit
-      originalPrice: cartSubtotal / cart.reduce((sum, item) => sum + item.quantity, 0),
-      buyingPrice:
-        cart.reduce((sum, item) => sum + item.buyingPrice * item.quantity, 0) /
-        cart.reduce((sum, item) => sum + item.quantity, 0),
-      quantity: cart.reduce((sum, item) => sum + item.quantity, 0), // Total quantity
-      subtotal: cartSubtotal,
-      discountAmount: discount,
-      totalAmount: totalWithDiscount,
-      totalProfit: totalProfit,
-      isMultiItem: cart.length > 1,
-      itemCount: cart.length,
-      initialDeposit: customerInfo.paymentType === "debt" ? Number.parseFloat(initialDeposit) || 0 : 0,
-    }
+        date: currentDate,
+        id: saleId, // Same ID for all items in this sale
+        multiItemSale: cart.length > 1, // Flag to indicate this is part of a multi-item sale
+        totalSaleAmount: totalAmount, // Store the total sale amount
+      }
 
-    // Add the single comprehensive sale record
-    addSale(saleRecord)
+      addSale(saleRecord)
+    })
 
     // Reset form
     setCustomerInfo({
@@ -178,20 +138,14 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
     })
     setCart([])
     setShowForm(false)
-    setDiscount(0)
-    setInitialDeposit("")
-
-    alert(`Sale completed successfully! ${cart.length} item(s) sold for ₦${formatNumber(totalWithDiscount.toFixed(2))}`)
   }
 
   const calculateTotal = () => {
-    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-    return subtotal - discount // Direct subtraction of discount amount
+    return cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   }
 
   const calculateProfit = () => {
-    const profit = cart.reduce((sum, item) => sum + (item.price - item.buyingPrice) * item.quantity, 0)
-    return profit - discount // Subtract discount from profit
+    return cart.reduce((sum, item) => sum + (item.price - item.buyingPrice) * item.quantity, 0)
   }
 
   const formatNumber = (num) => {
@@ -200,7 +154,7 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
     return parts.join(".")
   }
 
-  const filteredSales = sales.filter((sale) => {
+  const filteredSalesCalc = sales.filter((sale) => {
     const searchLower = searchTerm.toLowerCase()
     return (
       sale.customerName?.toLowerCase().includes(searchLower) ||
@@ -211,133 +165,11 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
   })
 
   // Calculate total sales and profit
-  const totalSales = filteredSales.reduce((sum, sale) => sum + sale.price * sale.quantity, 0)
-  const totalProfit = filteredSales.reduce((sum, sale) => {
+  const totalSales = filteredSalesCalc.reduce((sum, sale) => sum + sale.price * sale.quantity, 0)
+  const totalProfit = filteredSalesCalc.reduce((sum, sale) => {
     const profit = (sale.price - (sale.buyingPrice || 0)) * sale.quantity
     return sum + profit
   }, 0)
-
-  // Sales Card Component for mobile view
-  const SalesCard = ({ sale, total, profit, profitMargin, formatNumber }) => {
-    const [isExpanded, setIsExpanded] = useState(false)
-
-    const toggleExpanded = () => {
-      setIsExpanded(!isExpanded)
-    }
-
-    return (
-      <div
-        className={`sales-card ${sale.paymentType === "debt" ? "debt-card" : ""} ${isExpanded ? "expanded" : ""}`}
-        onClick={toggleExpanded}
-      >
-        {/* Essential Info - Always Visible */}
-        <div className="sales-card-header">
-          <div className="sales-card-main">
-            <div className="customer-info">
-              <h4 className="customer-name">{sale.customerName || "Walk-in Customer"}</h4>
-              <span className="sale-date">{sale.date}</span>
-            </div>
-            <div className="sale-amount">
-              <span className="total-amount">₦{formatNumber(total.toFixed(2))}</span>
-              <span className={`payment-status ${sale.paymentType}`}>
-                {sale.paymentType === "paid" ? "Paid" : "Debt"}
-              </span>
-            </div>
-          </div>
-
-          <div className="sales-card-summary">
-            <div className="product-summary">
-              {sale.isMultiItem ? (
-                <span className="multi-item-badge">{sale.itemCount} items</span>
-              ) : (
-                <span className="single-item">{sale.productName}</span>
-              )}
-              <span className="quantity-badge">Qty: {formatNumber(sale.quantity)}</span>
-            </div>
-            <div className="expand-indicator">
-              <span className="expand-text">{isExpanded ? "Less" : "More"}</span>
-              <div className={`expand-arrow ${isExpanded ? "rotated" : ""}`}>▼</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Detailed Info - Expandable */}
-        <div className={`sales-card-details ${isExpanded ? "visible" : ""}`}>
-          {sale.isMultiItem && sale.cartItems ? (
-            <div className="cart-items-section">
-              <h5>Items Purchased:</h5>
-              <div className="cart-items-list">
-                {sale.cartItems.map((item, index) => (
-                  <div key={index} className="cart-item-detail">
-                    <span className="item-name">{item.productName}</span>
-                    <span className="item-details">
-                      {item.quantity} × ₦{formatNumber(item.price.toFixed(2))} = ₦
-                      {formatNumber(item.itemTotal.toFixed(2))}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="single-item-details">
-              <div className="detail-row">
-                <span className="detail-label">Product:</span>
-                <span className="detail-value">{sale.productName}</span>
-              </div>
-              <div className="detail-row">
-                <span className="detail-label">Unit Price:</span>
-                <span className="detail-value">₦{formatNumber(sale.price.toFixed(2))}</span>
-              </div>
-            </div>
-          )}
-
-          <div className="financial-details">
-            {sale.subtotal && sale.discountAmount > 0 && (
-              <>
-                <div className="detail-row">
-                  <span className="detail-label">Subtotal:</span>
-                  <span className="detail-value">₦{formatNumber(sale.subtotal.toFixed(2))}</span>
-                </div>
-                <div className="detail-row discount-row">
-                  <span className="detail-label">Discount:</span>
-                  <span className="detail-value discount-amount">-₦{formatNumber(sale.discountAmount.toFixed(2))}</span>
-                </div>
-              </>
-            )}
-
-            <div className="detail-row profit-row">
-              <span className="detail-label">Profit:</span>
-              <span className={`detail-value ${profit > 0 ? "profit-positive" : "profit-negative"}`}>
-                ₦{formatNumber(profit.toFixed(2))} ({profitMargin.toFixed(1)}%)
-              </span>
-            </div>
-
-            {sale.paymentType === "debt" && sale.initialDeposit > 0 && (
-              <div className="detail-row">
-                <span className="detail-label">Initial Deposit:</span>
-                <span className="detail-value">₦{formatNumber(sale.initialDeposit.toFixed(2))}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="customer-details">
-            {sale.phoneNumber && (
-              <div className="detail-row">
-                <span className="detail-label">Phone:</span>
-                <span className="detail-value">{sale.phoneNumber}</span>
-              </div>
-            )}
-            {sale.address && (
-              <div className="detail-row">
-                <span className="detail-label">Address:</span>
-                <span className="detail-value">{sale.address}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <main className="sales-page">
@@ -404,145 +236,60 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
                 <ShoppingCart className="cart-icon" />
                 Shopping Cart
               </h4>
-              {/* Desktop Cart Table */}
-              <div className="table-wrapper">
-                <table className="cart-table">
-                  <thead>
-                    <tr>
-                      <th>Product</th>
-                      <th>Price (₦)</th>
-                      <th>Quantity</th>
-                      <th>Total (₦)</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cart.map((item, index) => (
-                      <tr key={index}>
-                        <td>{item.productName}</td>
-                        <td>₦{formatNumber(item.price.toFixed(2))}</td>
-                        <td>{item.quantity}</td>
-                        <td>₦{formatNumber((item.price * item.quantity).toFixed(2))}</td>
-                        <td>
-                          <button
-                            onClick={() => removeFromCart(index)}
-                            className="remove-button"
-                            title="Remove from cart"
-                          >
-                            <Trash2 className="button-icon-small" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="cart-total">
-                      <td colSpan="3">
-                        <strong>Total</strong>
-                      </td>
-                      <td colSpan="2">
-                        <strong>₦{formatNumber(calculateTotal().toFixed(2))}</strong>
-                      </td>
-                    </tr>
-                    <tr className="cart-profit">
-                      <td colSpan="3">
-                        <strong>Estimated Profit</strong>
-                      </td>
-                      <td colSpan="2">
-                        <strong className="profit-value">₦{formatNumber(calculateProfit().toFixed(2))}</strong>
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-
-              {/* Mobile Cart Cards */}
-              <div className="mobile-cards">
-                <div className="cart-cards">
+              <table className="cart-table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Price (₦)</th>
+                    <th>Quantity</th>
+                    <th>Total (₦)</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {cart.map((item, index) => (
-                    <div key={index} className="cart-card">
-                      <div className="cart-card-header">
-                        <span className="cart-card-title">{item.productName}</span>
+                    <tr key={index}>
+                      <td>{item.productName}</td>
+                      <td>₦{formatNumber(item.price.toFixed(2))}</td>
+                      <td>{item.quantity}</td>
+                      <td>₦{formatNumber((item.price * item.quantity).toFixed(2))}</td>
+                      <td>
                         <button
                           onClick={() => removeFromCart(index)}
-                          className="cart-card-remove"
+                          className="remove-button"
                           title="Remove from cart"
                         >
                           <Trash2 className="button-icon-small" />
                         </button>
-                      </div>
-                      <div className="cart-card-details">
-                        <div className="cart-card-detail">
-                          <div className="cart-card-detail-label">Price</div>
-                          <div className="cart-card-detail-value">₦{formatNumber(item.price.toFixed(2))}</div>
-                        </div>
-                        <div className="cart-card-detail">
-                          <div className="cart-card-detail-label">Qty</div>
-                          <div className="cart-card-detail-value">{item.quantity}</div>
-                        </div>
-                        <div className="cart-card-detail">
-                          <div className="cart-card-detail-label">Total</div>
-                          <div className="cart-card-detail-value">
-                            ₦{formatNumber((item.price * item.quantity).toFixed(2))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                      </td>
+                    </tr>
                   ))}
-
-                  {/* Mobile Cart Summary */}
-                  <div className="cart-card" style={{ backgroundColor: "#fff8f0", border: "2px solid #ff8c00" }}>
-                    <div className="cart-card-details">
-                      <div className="cart-card-detail">
-                        <div className="cart-card-detail-label">Cart Total</div>
-                        <div className="cart-card-detail-value" style={{ color: "#ff8c00", fontWeight: "bold" }}>
-                          ₦{formatNumber(calculateTotal().toFixed(2))}
-                        </div>
-                      </div>
-                      <div className="cart-card-detail">
-                        <div className="cart-card-detail-label">Est. Profit</div>
-                        <div className="cart-card-detail-value profit-positive">
-                          ₦{formatNumber(calculateProfit().toFixed(2))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="discount-section">
-                <div className="discount-input">
-                  <label htmlFor="discount">Discount Amount (₦)</label>
-                  <input
-                    id="discount"
-                    type="number"
-                    min="0"
-                    max={cart.reduce((sum, item) => sum + item.price * item.quantity, 0)}
-                    step="0.01"
-                    value={discount}
-                    onChange={handleDiscountChange}
-                    className="discount-field"
-                    placeholder="0.00"
-                  />
-                  <span className="discount-limit">
-                    Max: ₦{formatNumber(cart.reduce((sum, item) => sum + item.price * item.quantity, 0).toFixed(2))}
-                  </span>
-                </div>
-                {discount > 0 && (
-                  <div className="discount-summary">
-                    <p>
-                      Subtotal: ₦
-                      {formatNumber(cart.reduce((sum, item) => sum + item.price * item.quantity, 0).toFixed(2))}
-                    </p>
-                    <p>Discount: -₦{formatNumber(discount.toFixed(2))}</p>
-                  </div>
-                )}
-              </div>
+                </tbody>
+                <tfoot>
+                  <tr className="cart-total">
+                    <td colSpan="3">
+                      <strong>Total</strong>
+                    </td>
+                    <td colSpan="2">
+                      <strong>₦{formatNumber(calculateTotal().toFixed(2))}</strong>
+                    </td>
+                  </tr>
+                  <tr className="cart-profit">
+                    <td colSpan="3">
+                      <strong>Estimated Profit</strong>
+                    </td>
+                    <td colSpan="2">
+                      <strong className="profit-value">₦{formatNumber(calculateProfit().toFixed(2))}</strong>
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           )}
 
           {/* Customer Information Form */}
           <form onSubmit={handleSubmit} className="customer-form">
-            <h4>Customer Information</h4>
+            <h4>Customer Information (Optional)</h4>
             <div className="form-group">
               <label htmlFor="customerName">Customer Name</label>
               <input
@@ -578,22 +325,6 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
                 <option value="debt">Debt</option>
               </select>
             </div>
-            {customerInfo.paymentType === "debt" && (
-              <div className="form-group">
-                <label htmlFor="initialDeposit">Initial Deposit (₦)</label>
-                <input
-                  id="initialDeposit"
-                  name="initialDeposit"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={initialDeposit}
-                  onChange={handleInitialDepositChange}
-                  placeholder="0.00"
-                />
-                <small className="deposit-note">Leave empty for no initial deposit</small>
-              </div>
-            )}
 
             <button type="submit" className="complete-sale-button" disabled={cart.length === 0}>
               Complete Sale
@@ -618,79 +349,106 @@ function SalesForm({ inventory, addSale, sales, setCurrentPage }) {
             </div>
           </div>
 
-          {/* Mobile Sales Cards */}
-          <div className="mobile-sales-cards">
-            {filteredSales.length > 0 ? (
-              filteredSales.map((sale) => {
-                const total = sale.totalAmount || sale.price * sale.quantity
-                const profit = sale.totalProfit || (sale.price - (sale.buyingPrice || 0)) * sale.quantity
-                const profitMargin = sale.price > 0 ? ((sale.price - (sale.buyingPrice || 0)) / sale.price) * 100 : 0
+          <div className="sales-summary-cards">
+            {/* Group sales by ID (transaction) */}
+            {Object.values(
+              filteredSalesCalc.reduce((acc, sale) => {
+                if (!acc[sale.id]) {
+                  acc[sale.id] = {
+                    id: sale.id,
+                    date: sale.date,
+                    customerName: sale.customerName || "Walk-in Customer",
+                    items: [],
+                    totalAmount: 0,
+                    totalProfit: 0,
+                    paymentType: sale.paymentType,
+                    expanded: false,
+                  }
+                }
 
-                return (
-                  <SalesCard
-                    key={sale.id}
-                    sale={sale}
-                    total={total}
-                    profit={profit}
-                    profitMargin={profitMargin}
-                    formatNumber={formatNumber}
-                  />
-                )
-              })
-            ) : (
-              <div className="no-sales-message">
-                <ShoppingCart className="no-sales-icon" />
-                <p>No sales records found</p>
-              </div>
-            )}
-          </div>
+                const saleTotal = sale.price * sale.quantity
+                const saleProfit = (sale.price - (sale.buyingPrice || 0)) * sale.quantity
 
-          {/* Desktop Table (hidden on mobile) */}
-          <div className="desktop-sales-table">
-            <div className="table-wrapper">
-              <table className="responsive-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Customer</th>
-                    <th>Product</th>
-                    <th>Quantity</th>
-                    <th>Price (₦)</th>
-                    <th>Total (₦)</th>
-                    <th>Profit (₦)</th>
-                    <th>Payment</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSales.map((sale) => {
-                    const total = sale.totalAmount || sale.price * sale.quantity
-                    const profit = sale.totalProfit || (sale.price - (sale.buyingPrice || 0)) * sale.quantity
-                    const profitMargin =
-                      sale.price > 0 ? ((sale.price - (sale.buyingPrice || 0)) / sale.price) * 100 : 0
+                acc[sale.id].items.push(sale)
+                acc[sale.id].totalAmount += saleTotal
+                acc[sale.id].totalProfit += saleProfit
 
-                    return (
-                      <tr key={sale.id} className={sale.paymentType === "debt" ? "debt-row" : ""}>
-                        <td>{sale.date}</td>
-                        <td>{sale.customerName}</td>
-                        <td>{sale.productName}</td>
-                        <td>{formatNumber(sale.quantity)}</td>
-                        <td>₦{formatNumber(sale.price.toFixed(2))}</td>
-                        <td>₦{formatNumber(total.toFixed(2))}</td>
-                        <td className={profit > 0 ? "profit-positive" : "profit-negative"}>
-                          ₦{formatNumber(profit.toFixed(2))}
-                          <span className="profit-margin">({profitMargin.toFixed(1)}%)</span>
-                        </td>
-                        <td>
-                          <span className={`payment-status ${sale.paymentType}`}>
-                            {sale.paymentType === "paid" ? "Paid" : "Debt"}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                return acc
+              }, {}),
+            )
+              .sort((a, b) => new Date(b.date) - new Date(a.date)) // Sort by date, newest first
+              .map((transaction) => (
+                <div
+                  key={transaction.id}
+                  className={`sale-transaction-card ${transaction.paymentType === "debt" ? "debt-card" : ""}`}
+                  onClick={() => {
+                    setExpandedSaleIds((prev) => ({
+                      ...prev,
+                      [transaction.id]: !prev[transaction.id],
+                    }))
+                  }}
+                >
+                  <div className="transaction-header">
+                    <div className="transaction-info">
+                      <div className="transaction-date">{transaction.date}</div>
+                      <div className="transaction-customer">{transaction.customerName}</div>
+                    </div>
+                    <div className="transaction-totals">
+                      <div className="transaction-amount">₦{formatNumber(transaction.totalAmount.toFixed(2))}</div>
+                      <div className={`transaction-payment ${transaction.paymentType}`}>
+                        {transaction.paymentType === "paid" ? "Paid" : "Debt"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Show details only if expanded */}
+                  {expandedSaleIds[transaction.id] && (
+                    <div className="transaction-details">
+                      <table className="transaction-items-table">
+                        <thead>
+                          <tr>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>Price (₦)</th>
+                            <th>Total (₦)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {transaction.items.map((item, idx) => {
+                            const itemTotal = item.price * item.quantity
+                            return (
+                              <tr key={`${item.id}-${idx}`}>
+                                <td>{item.productName}</td>
+                                <td>{formatNumber(item.quantity)}</td>
+                                <td>₦{formatNumber(item.price.toFixed(2))}</td>
+                                <td>₦{formatNumber(itemTotal.toFixed(2))}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <td colSpan="3">
+                              <strong>Total</strong>
+                            </td>
+                            <td>
+                              <strong>₦{formatNumber(transaction.totalAmount.toFixed(2))}</strong>
+                            </td>
+                          </tr>
+                          <tr className="profit-row">
+                            <td colSpan="3">
+                              <strong>Profit</strong>
+                            </td>
+                            <td className={transaction.totalProfit > 0 ? "profit-positive" : "profit-negative"}>
+                              <strong>₦{formatNumber(transaction.totalProfit.toFixed(2))}</strong>
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              ))}
           </div>
 
           <div className="sales-summary">

@@ -406,7 +406,7 @@ function FinancialManagement({ setCurrentPage, inventory, sales = [], updateFina
   }
 
   // Income categories
-  const incomeCategories = ["Sales", "Investment", "Credit", "Refund",  "Other Income"]
+  const incomeCategories = ["Sales", "Investment", "Loan", "Interest", "Refund", "Gift", "Other Income"]
 
   // Expense categories
   const expenseCategories = [
@@ -415,19 +415,36 @@ function FinancialManagement({ setCurrentPage, inventory, sales = [], updateFina
     "Clothing",
     "Food",
     "Electronics",
-    
+    "Furniture",
+    "Appliances",
+    "Beauty Products",
+    "Health Products",
+    "Toys",
+    "Books",
+    "Stationery",
+    "Jewelry",
+    "Accessories",
+    "Home Decor",
+    "Kitchen Items",
+    "Sports Equipment",
+    "Automotive",
+    "Tools",
+    "Garden Supplies",
 
     // Operational expenses (still needed for general business expenses)
     "Rent",
     "Utilities",
     "Salaries",
     "Transportation",
+    "Marketing",
+    "Insurance",
     "Taxes",
     "Office Supplies",
     "Maintenance",
     "Packaging",
     "Shipping",
     "Software",
+    "Equipment",
     "Professional Services",
     "Bank Charges",
     "Other Expense",
@@ -438,6 +455,10 @@ function FinancialManagement({ setCurrentPage, inventory, sales = [], updateFina
     "Cash",
     "Bank Transfer",
     "Credit Card",
+    "Debit Card",
+    "Mobile Money",
+    "Check",
+    "Credit",
     "Other",
   ]
 
@@ -970,53 +991,112 @@ function FinancialManagement({ setCurrentPage, inventory, sales = [], updateFina
             <p>No transactions found. Add income or expenses to get started.</p>
           </div>
         ) : (
-          <div className="transactions-table-wrapper">
-            <table className="transactions-table">
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Date</th>
-                  <th>Category</th>
-                  <th>Description</th>
-                  <th>Payment Method</th>
-                  <th>Reference</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedTransactions.map((transaction) => (
-                  <tr key={transaction.id} className={`transaction-row ${transaction.type}`}>
-                    <td className="transaction-type">
-                      {getTransactionIcon(transaction.type)}
-                      <span>{getTransactionTypeLabel(transaction.type)}</span>
-                    </td>
-                    <td>{new Date(transaction.date).toLocaleDateString()}</td>
-                    <td className="transaction-category">
-                      <span className={`category-badge ${transaction.category}`}>
-                        {transaction.category.charAt(0).toUpperCase() + transaction.category.slice(1)}
-                      </span>
-                    </td>
-                    <td>
-                      {transaction.description}
-                      {transaction.relatedSales && transaction.relatedSales.length > 0 && (
-                        <span className="related-badge">Sale ID: {transaction.relatedSales.join(", ")}</span>
-                      )}
-                    </td>
-                    <td>{transaction.paymentMethod.charAt(0).toUpperCase() + transaction.paymentMethod.slice(1)}</td>
-                    <td>{transaction.reference || "-"}</td>
-                    <td
-                      className={`transaction-amount ${
+          <>
+            {/* Desktop Table */}
+            <div className="transactions-table-wrapper desktop-table">
+              <table className="transactions-table">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Payment Method</th>
+                    <th>Reference</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedTransactions.map((transaction) => (
+                    <tr key={transaction.id} className={`transaction-row ${transaction.type}`}>
+                      <td className="transaction-type">
+                        {getTransactionIcon(transaction.type)}
+                        <span>{getTransactionTypeLabel(transaction.type)}</span>
+                      </td>
+                      <td>{new Date(transaction.date).toLocaleDateString()}</td>
+                      <td className="transaction-category">
+                        <span className={`category-badge ${transaction.category}`}>
+                          {transaction.category.charAt(0).toUpperCase() + transaction.category.slice(1)}
+                        </span>
+                      </td>
+                      <td>
+                        {transaction.description}
+                        {transaction.relatedSales && transaction.relatedSales.length > 0 && (
+                          <span className="related-badge">Sale ID: {transaction.relatedSales.join(", ")}</span>
+                        )}
+                      </td>
+                      <td>{transaction.paymentMethod.charAt(0).toUpperCase() + transaction.paymentMethod.slice(1)}</td>
+                      <td>{transaction.reference || "-"}</td>
+                      <td
+                        className={`transaction-amount ${
+                          transaction.type === "income" || transaction.type === "capital" ? "positive" : "negative"
+                        }`}
+                      >
+                        {transaction.type === "expense" ? "-" : ""}
+                        {formatCurrency(transaction.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="mobile-cards">
+              {sortedTransactions.map((transaction) => (
+                <div key={transaction.id} className={`table-card transaction-card ${transaction.type}`}>
+                  <div className="card-header">
+                    <div className="card-title-section">
+                      <div className="transaction-type">
+                        {getTransactionIcon(transaction.type)}
+                        <span>{getTransactionTypeLabel(transaction.type)}</span>
+                      </div>
+                      <span className="card-date">{new Date(transaction.date).toLocaleDateString()}</span>
+                    </div>
+                    <div
+                      className={`card-amount ${
                         transaction.type === "income" || transaction.type === "capital" ? "positive" : "negative"
                       }`}
                     >
                       {transaction.type === "expense" ? "-" : ""}
                       {formatCurrency(transaction.amount)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  </div>
+
+                  <div className="card-details">
+                    <div className="card-detail">
+                      <span className="card-detail-label">Category</span>
+                      <span className={`category-badge ${transaction.category}`}>
+                        {transaction.category.charAt(0).toUpperCase() + transaction.category.slice(1)}
+                      </span>
+                    </div>
+                    <div className="card-detail">
+                      <span className="card-detail-label">Description</span>
+                      <span className="card-detail-value">{transaction.description}</span>
+                    </div>
+                    <div className="card-detail">
+                      <span className="card-detail-label">Payment Method</span>
+                      <span className="card-detail-value">
+                        {transaction.paymentMethod.charAt(0).toUpperCase() + transaction.paymentMethod.slice(1)}
+                      </span>
+                    </div>
+                    {transaction.reference && (
+                      <div className="card-detail">
+                        <span className="card-detail-label">Reference</span>
+                        <span className="card-detail-value">{transaction.reference}</span>
+                      </div>
+                    )}
+                    {transaction.relatedSales && transaction.relatedSales.length > 0 && (
+                      <div className="card-detail">
+                        <span className="card-detail-label">Related Sale</span>
+                        <span className="related-badge">ID: {transaction.relatedSales.join(", ")}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

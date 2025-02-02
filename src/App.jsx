@@ -6,6 +6,7 @@ import HomePage from "./components/HomePage"
 import ProductForm from "./components/ProductForm"
 import ViewInventory from "./components/ViewInventory"
 import ManageInventory from "./components/ManageInventory"
+import ProductDetails from "./components/ProductDetails"
 import LoginForm from "./components/LogingForm"
 import SignupForm from "./components/SignupForm"
 import UserDetails from "./components/UserDetails"
@@ -14,6 +15,9 @@ import ReceiptPrinting from "./components/ReceiptPrinting"
 import DebtBook from "./components/DebtBook"
 import SalesAnalytics from "./components/SalesAnalytics"
 import FinancialManagement from "./components/FinancialManagement"
+import ProductSelection from "./components/ProductSelection"
+import SaleDetails from "./components/SaleDetails"
+import ReceiptHistory from "./components/ReceiptHistory"
 import "./App.css"
 
 function App() {
@@ -23,6 +27,21 @@ function App() {
   const [companyInfo, setCompanyInfo] = useState({ name: "", image: "" })
   const [debts, setDebts] = useState([])
   const [sales, setSales] = useState([])
+  const [productHistory, setProductHistory] = useState([])
+  const [cart, setCart] = useState([])
+
+  // Load product history from localStorage
+  useEffect(() => {
+    const storedHistory = localStorage.getItem("productHistory")
+    if (storedHistory) {
+      setProductHistory(JSON.parse(storedHistory))
+    }
+  }, [])
+
+  // Save product history to localStorage
+  useEffect(() => {
+    localStorage.setItem("productHistory", JSON.stringify(productHistory))
+  }, [productHistory])
 
   useEffect(() => {
     const storedName = localStorage.getItem("companyName")
@@ -52,7 +71,26 @@ function App() {
   }, [sales])
 
   const addProduct = (product) => {
-    setInventory([...inventory, { ...product, id: Date.now() }])
+    const newProduct = { ...product, id: Date.now() }
+    setInventory([...inventory, newProduct])
+
+    // Add to product history
+    const historyEntry = {
+      id: Date.now() + 1,
+      productId: newProduct.id,
+      productName: newProduct.name,
+      type: "created",
+      date: new Date().toISOString().split("T")[0],
+      description: `Product created with initial stock of ${newProduct.quantity}`,
+      quantity: newProduct.quantity,
+      amount: newProduct.buyingPrice * newProduct.quantity,
+      details: {
+        buyingPrice: newProduct.buyingPrice,
+        sellingPrice: newProduct.price,
+        category: newProduct.category,
+      },
+    }
+    setProductHistory([...productHistory, historyEntry])
   }
 
   const updateQuantity = (id, change) => {
@@ -76,7 +114,25 @@ function App() {
     setCurrentSale(processedSale)
     setSales([...sales, processedSale])
 
-    // If sale is on debt, add to debt book
+    // Add to product history
+    const historyEntry = {
+      id: Date.now() + Math.random(),
+      productId: processedSale.product,
+      productName: processedSale.productName,
+      type: "sale",
+      date: processedSale.date,
+      description: `Sold ${processedSale.quantity} units to ${processedSale.customerName}`,
+      quantity: -processedSale.quantity,
+      amount: processedSale.price * processedSale.quantity,
+      details: {
+        customerName: processedSale.customerName,
+        paymentType: processedSale.paymentType,
+        unitPrice: processedSale.price,
+      },
+    }
+    setProductHistory([...productHistory, historyEntry])
+
+    // If sale is on debt, add to debt book with correct amount
     if (processedSale.paymentType === "debt") {
       const saleAmount = processedSale.price * processedSale.quantity
       const initialDeposit = processedSale.initialDeposit || 0
@@ -86,12 +142,12 @@ function App() {
         id: Date.now(),
         customerName: processedSale.customerName,
         phoneNumber: processedSale.phoneNumber,
-        amount: saleAmount,
+        amount: saleAmount, // Full sale amount
         date: processedSale.date,
-        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // 30 days from now
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
         description: `Purchase of ${processedSale.quantity} ${processedSale.productName}`,
         status: "pending",
-        saleId: processedSale.id, // Link to the sale
+        saleId: processedSale.id,
         deposits:
           initialDeposit > 0
             ? [
@@ -145,7 +201,7 @@ function App() {
     // For now, we just need to pass this function to both components
   }
 
-  // Update the renderPage function to pass these new functions to ManageInventory
+  // Update the renderPage function to include ProductDetails and SaleDetails
   const renderPage = () => {
     switch (currentPage) {
       case "home":
@@ -153,19 +209,21 @@ function App() {
       case "add-product":
         return <ProductForm addProduct={addProduct} setCurrentPage={setCurrentPage} />
       case "view-inventory":
-        return <ViewInventory inventory={inventory} setCurrentPage={setCurrentPage} />
+        return <ViewInventory inventory={inventory} productHistory={productHistory} setCurrentPage={setCurrentPage} />
+      case "product-details":
+        return <ProductDetails productHistory={productHistory} setCurrentPage={setCurrentPage} />
       case "manage-inventory":
         return (
           <ManageInventory
             inventory={inventory}
+            productHistory={productHistory}
+            setProductHistory={setProductHistory}
             updateQuantity={updateQuantity}
             deleteProduct={deleteProduct}
             updateProduct={updateProduct}
             setCurrentPage={setCurrentPage}
           />
         )
-      case "developer-details":
-        return <DeveloperDetails setCurrentPage={setCurrentPage} />
       case "login":
         return <LoginForm setCurrentPage={setCurrentPage} />
       case "signup":
@@ -173,7 +231,16 @@ function App() {
       case "user-details":
         return <UserDetails setCurrentPage={setCurrentPage} companyInfo={companyInfo} />
       case "sales":
-        return <SalesForm inventory={inventory} addSale={addSale} sales={sales} setCurrentPage={setCurrentPage} />
+        return (
+          <SalesForm
+            inventory={inventory}
+            addSale={addSale}
+            sales={sales}
+            cart={cart}
+            setCart={setCart}
+            setCurrentPage={setCurrentPage}
+          />
+        )
       case "receipt-printing":
         return (
           <ReceiptPrinting
@@ -183,6 +250,10 @@ function App() {
             companyInfo={companyInfo}
           />
         )
+      case "receipt-history":
+        return <ReceiptHistory sales={sales} setCurrentPage={setCurrentPage} setCurrentSale={setCurrentSale} />
+      case "sale-details":
+        return <SaleDetails sale={currentSale} setCurrentPage={setCurrentPage} setCurrentSale={setCurrentSale} />
       case "debt-book":
         return (
           <DebtBook
@@ -205,6 +276,8 @@ function App() {
             updateFinancialRecords={updateFinancialRecords}
           />
         )
+      case "product-selection":
+        return <ProductSelection inventory={inventory} cart={cart} setCart={setCart} setCurrentPage={setCurrentPage} />
       default:
         return <HomePage setCurrentPage={setCurrentPage} />
     }

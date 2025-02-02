@@ -457,7 +457,9 @@ function SalesAnalytics({ sales = [], inventory = [], setCurrentPage }) {
       {chartType === "products" && (
         <div className="data-table-section">
           <h3>Top 10 Products by Sales</h3>
-          <div className="table-wrapper">
+
+          {/* Desktop Table */}
+          <div className="table-wrapper desktop-table">
             <table className="analytics-table">
               <thead>
                 <tr>
@@ -482,6 +484,38 @@ function SalesAnalytics({ sales = [], inventory = [], setCurrentPage }) {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="mobile-cards">
+            {salesData.topProducts.map((product, index) => (
+              <div key={index} className="table-card analytics-card">
+                <div className="card-header">
+                  <div className="card-title-section">
+                    <h3 className="card-title">{product.name}</h3>
+                    <span className="card-rank">#{index + 1}</span>
+                  </div>
+                  <div className="card-sales">{formatCurrency(product.sales)}</div>
+                </div>
+
+                <div className="card-details">
+                  <div className="card-detail">
+                    <span className="card-detail-label">Quantity Sold</span>
+                    <span className="card-detail-value">{product.quantity}</span>
+                  </div>
+                  <div className="card-detail">
+                    <span className="card-detail-label">Profit</span>
+                    <span className={`card-detail-value ${product.profit > 0 ? "profit-positive" : "profit-negative"}`}>
+                      {formatCurrency(product.profit)}
+                    </span>
+                  </div>
+                  <div className="card-detail">
+                    <span className="card-detail-label">Margin</span>
+                    <span className="card-detail-value">{formatNumber((product.profit / product.sales) * 100)}%</span>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
